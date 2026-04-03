@@ -1,0 +1,3 @@
+{
+  "extends": "@uni-exam-sys/config/tsconfig.base.json"
+}
