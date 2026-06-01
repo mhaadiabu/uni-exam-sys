@@ -34,8 +34,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", dmSans.variable)}>
-      <body className={`${dmSans.variable} ${mono.variable} antialiased selection:bg-primary/20 selection:text-primary`}>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", dmSans.variable, instrumentSerif.variable, mono.variable)}>
+      <body className={cn(
+        "min-h-screen bg-background font-sans antialiased selection:bg-primary/20 selection:text-primary",
+        dmSans.variable,
+        instrumentSerif.variable,
+        mono.variable
+      )}>
         <ClerkProvider>
           <Providers>
             <AppShell>{children}</AppShell>
