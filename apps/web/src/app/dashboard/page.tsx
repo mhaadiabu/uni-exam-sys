@@ -2122,7 +2122,7 @@ function DashboardContent() {
                     <p className="text-xs font-medium">Payment Records</p>
                     <p className="text-[11px] text-muted-foreground">All payment records including student fees and invigilator payments</p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleDownloadPaymentsPdf} disabled={!(financeReports?.payments?.length ?? 0) > 0}>
+                  <Button variant="outline" size="sm" onClick={handleDownloadPaymentsPdf} disabled={(financeReports?.payments?.length ?? 0) <= 0}>
                     <FileDown className="mr-1 size-3.5" /> Download
                   </Button>
                 </div>
