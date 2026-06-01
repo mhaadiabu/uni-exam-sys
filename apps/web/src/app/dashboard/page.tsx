@@ -106,7 +106,7 @@ function SignInState() {
             </p>
           </div>
           <SignInButton>
-            <Button size="lg" className="w-full font-mono uppercase tracking-widest text-xs">Sign in</Button>
+            <Button size="lg" className="w-full uppercase tracking-widest text-xs">Sign in</Button>
           </SignInButton>
         </div>
       </div>
@@ -1300,9 +1300,9 @@ function DashboardContent() {
       ],
       rows: payments.map((p) => [
         p.reference,
-        p.type.replaceAll("_", " "),
+        roleLabel(p.type),
         p.amount.toLocaleString(),
-        p.status,
+        roleLabel(p.status),
         formatDate(p.createdAt),
       ]),
     }];
@@ -1431,7 +1431,7 @@ function DashboardContent() {
         <div className="space-y-3 pt-2">
           {matchedUniversity ? (
             <div className="max-w-sm space-y-1 rounded-md border bg-background/60 p-3 text-xs">
-              <p className="font-medium">Automatic tenant match</p>
+              <p className="font-medium">Automatic university match</p>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">University</span>
                 <span>{matchedUniversity.name}</span>
@@ -1473,14 +1473,14 @@ function DashboardContent() {
              <Badge variant="outline">{roleLabel(me.role)}</Badge>
              {me.university ? (
                <Badge>{me.university.code}</Badge>
-             ) : (
-               <Badge variant="secondary">Global scope</Badge>
-             )}
+              ) : (
+                <Badge variant="secondary">Cross-university</Badge>
+              )}
            </div>
            <div className="space-y-1">
              <h1 className="text-2xl font-semibold tracking-tight">Operations Command Console</h1>
              <p className="max-w-2xl text-xs text-muted-foreground">
-               Schedules, seating, attendance, verification, and finance flows aligned to your tenant scope.
+                Schedules, seating, attendance, verification, and finance flows aligned to your university.
              </p>
            </div>
            <div className="grid gap-2 sm:grid-cols-3">
@@ -1511,7 +1511,7 @@ function DashboardContent() {
          <div className="grid gap-3 border bg-background/40 p-3 text-xs">
            {me.role === "super_admin" && (universities?.length ?? 0) > 0 ? (
              <div className="space-y-1">
-               <Label htmlFor="tenantSelect">Tenant scope</Label>
+                <Label htmlFor="tenantSelect">University</Label>
                <Select
                  value={selectedUniversityId || (universities?.[0]?._id ?? "")}
                  onValueChange={(value) => setSelectedUniversityId(value as Id<"universities">)}
@@ -1530,8 +1530,8 @@ function DashboardContent() {
              </div>
            ) : null}
            <div className="flex items-center justify-between">
-             <span className="text-muted-foreground">Active tenant</span>
-             <span className="font-medium">{me.university?.name ?? "Super Admin Workspace"}</span>
+              <span className="text-muted-foreground">Active university</span>
+              <span className="font-medium">{me.university?.name ?? "Global Workspace"}</span>
            </div>
            <div className="flex items-center justify-between">
              <span className="text-muted-foreground">Workspace role</span>
@@ -1568,7 +1568,7 @@ function DashboardContent() {
               <TabsTrigger value="id-cards">ID Cards</TabsTrigger>
             ) : null}
             <TabsTrigger value="messages">Messages</TabsTrigger>
-            {(me.role === "super_admin" || me.role === "university_admin") ? <TabsTrigger value="tenant">Tenant</TabsTrigger> : null}
+            {(me.role === "super_admin" || me.role === "university_admin") ? <TabsTrigger value="tenant">Universities</TabsTrigger> : null}
           </TabsList>
 
           <TabsContent value="operations" className="space-y-4 pt-4">
@@ -1720,7 +1720,7 @@ function DashboardContent() {
               <div className="rounded-md border bg-background/60 p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold">Attendance Register</h2>
-                  <Badge variant="outline">{attendanceRegister?.register.status ?? "No register"}</Badge>
+                  <Badge variant="outline">{attendanceRegister?.register.status ? roleLabel(attendanceRegister.register.status) : "Not started"}</Badge>
                 </div>
                 <Separator className="mb-3" />
                 {attendanceRegister ? (
@@ -1894,7 +1894,7 @@ function DashboardContent() {
               <div className="rounded-md border bg-background/60 p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold">Penalty Threshold Monitor</h2>
-                  <Badge variant="outline">Semester scoped</Badge>
+                  <Badge variant="outline">Semester</Badge>
                 </div>
                 <Separator className="mb-3" />
                 <Table>
@@ -2421,7 +2421,7 @@ function DashboardContent() {
                   </Select>
                   <div className="grid grid-cols-3 gap-2">
                     <Input type="number" value={newStudentSemester} onChange={(event) => setNewStudentSemester(Number(event.target.value || 1))} placeholder="Semester" />
-                    <Input value={newStudentAcademicYear} onChange={(event) => setNewStudentAcademicYear(event.target.value)} placeholder="Acad. year" />
+                    <Input value={newStudentAcademicYear} onChange={(event) => setNewStudentAcademicYear(event.target.value)} placeholder="Academic year" />
                     <Select value={newStudentFeeStatus} onValueChange={(value) => setNewStudentFeeStatus(value as "cleared" | "outstanding")}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -2582,7 +2582,7 @@ function DashboardContent() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={card.status === "printed" ? "default" : "secondary"}>
-                            {card.status.replaceAll("_", " ")}
+                            {roleLabel(card.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs">{card.validityEnd}</TableCell>
@@ -2803,11 +2803,11 @@ function DashboardContent() {
                     {(financeReports?.payments ?? []).map((payment) => (
                       <TableRow key={payment._id}>
                         <TableCell className="text-xs">{payment.reference}</TableCell>
-                        <TableCell className="text-xs">{payment.type.replaceAll("_", " ")}</TableCell>
+                        <TableCell className="text-xs">{roleLabel(payment.type)}</TableCell>
                         <TableCell className="text-xs">{payment.amount.toLocaleString()}</TableCell>
                         <TableCell>
                           <Badge variant={payment.status === "paid" ? "default" : "secondary"}>
-                            {payment.status}
+                            {roleLabel(payment.status)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -2986,7 +2986,7 @@ function DashboardContent() {
 
           <section className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
             <div className="rounded-md border bg-background/60 p-4 shadow-sm">
-              <h2 className="mb-2 text-sm font-semibold">Tenant Registry</h2>
+              <h2 className="mb-2 text-sm font-semibold">University Registry</h2>
               <Separator className="mb-3" />
               <Table>
                 <TableHeader>
@@ -3118,7 +3118,7 @@ function DashboardContent() {
                 <div key={item._id} className="mb-2 border bg-background p-2 last:mb-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium">{item.subject}</p>
-                    <Badge variant="outline">{item.status.replaceAll("_", " ")}</Badge>
+                    <Badge variant="outline">{roleLabel(item.status)}</Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
@@ -3215,7 +3215,7 @@ function DashboardContent() {
                 <SelectContent>
                   {(complaints ?? []).filter((item) => item.status !== "resolved").map((item) => (
                     <SelectItem key={item._id} value={item._id}>
-                      {item.subject} ({item.status.replaceAll("_", " ")})
+                      {item.subject} ({roleLabel(item.status)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -3307,7 +3307,7 @@ function RolePanels({
     return (
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground">
-          Cross-tenant visibility and global audit governance.
+          Global visibility and oversight across all universities.
         </p>
         <div className="grid gap-2 sm:grid-cols-3">
           <QuickMetric
@@ -3887,7 +3887,7 @@ function RoleOperations({
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">Select a tenant scope first.</p>
+                <p className="text-muted-foreground">Select a university first.</p>
               )}
             </div>
       </div>

@@ -25,7 +25,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "AcademeX - University Exam Management",
-  description: "Multi-tenant university examination seating arrangement and operations system",
+  description: "University examination seating arrangement and operations system",
 };
 
 export default function RootLayout({

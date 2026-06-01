@@ -40,7 +40,7 @@ import {
   TableRow,
 } from "@uni-exam-sys/ui/components/table";
 
-import { formatDate } from "@/lib/utils";
+import { formatDate, roleLabel } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
 /*  Root page component                                                       */
@@ -198,7 +198,7 @@ function AuthenticatedHome() {
 
   async function handleCreateProgram() {
     if (!me?.universityId) {
-      toast.error("No tenant selected");
+      toast.error("No university selected");
       return;
     }
 
@@ -228,21 +228,20 @@ function AuthenticatedHome() {
                 variant={
                   healthCheck === "OK" ? "default" : "destructive"
                 }
-                className="font-mono text-[10px] uppercase tracking-wider"
+                className="text-[10px] uppercase tracking-wider"
               >
                 {healthCheck === undefined
-                  ? "Sys: Checking"
+                  ? "Checking"
                   : healthCheck === "OK"
-                    ? "Sys: Online"
-                    : "Sys: Offline"}
+                    ? "Connected"
+                    : "Disconnected"}
               </Badge>
-              <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider bg-secondary/50">Convex + Clerk</Badge>
             </div>
             <CardTitle className="font-serif text-3xl tracking-tight mt-2">
               Examination Control Center
             </CardTitle>
             <CardDescription className="text-sm mt-2 max-w-md leading-relaxed">
-              Multi-tenant operations engine for schedule planning, seating
+              Operations engine for schedule planning, seating
               generation, attendance finalization, and finance clearance.
             </CardDescription>
           </CardHeader>
@@ -286,7 +285,7 @@ function AuthenticatedHome() {
             ) : null}
             {!me && matchedUniversity ? (
               <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <p className="font-medium text-primary text-xs uppercase tracking-wider">Tenant match</p>
+                <p className="font-medium text-primary text-xs uppercase tracking-wider">University match</p>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">University</span>
                   <span className="font-medium">{matchedUniversity.name}</span>
@@ -309,7 +308,7 @@ function AuthenticatedHome() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Role</span>
-                <span className="font-mono text-xs uppercase tracking-wider bg-secondary/50 px-2 py-1 rounded-md">{me?.role ?? "No profile"}</span>
+                <span className="text-xs font-medium">{roleLabel(me?.role ?? "unknown")}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Active Schedules</span>
@@ -348,7 +347,7 @@ function AuthenticatedHome() {
               <Clock3 className="size-4 text-primary" />
               {timetableTitle}
             </CardTitle>
-            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider bg-background">Tenant scoped</Badge>
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider bg-background">University scoped</Badge>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -391,7 +390,7 @@ function AuthenticatedHome() {
                         {schedule.room?.name ?? "Unassigned"}
                       </TableCell>
                       <TableCell className="text-right pr-6">
-                        <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider bg-background shadow-sm">{schedule.status}</Badge>
+                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider bg-background shadow-sm">{roleLabel(schedule.status)}</Badge>
                       </TableCell>
                     </TableRow>
                   ))
