@@ -2144,7 +2144,9 @@ function DashboardContent() {
                 <div className="flex items-center gap-2">
                   <Select value={userFilterRole} onValueChange={(value) => setUserFilterRole(value as typeof userFilterRole)}>
                     <SelectTrigger className="h-8 w-[140px]">
-                      <SelectValue placeholder="All roles" />
+                      <SelectValue placeholder="All roles">
+                        {userFilterRole ? roleLabel(userFilterRole) : "All roles"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">All roles</SelectItem>
@@ -2217,7 +2219,9 @@ function DashboardContent() {
                     <Label>User</Label>
                     <Select value={roleChangeUserId || undefined} onValueChange={(value) => setRoleChangeUserId(value as Id<"users">)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select user" />
+                        <SelectValue placeholder="Select user">
+                          {allUsers?.find(u => u._id === roleChangeUserId)?.fullName ?? "Select user"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {(allUsers ?? []).map((user) => (
@@ -2232,7 +2236,7 @@ function DashboardContent() {
                     <Label>New role</Label>
                     <Select value={roleChangeNewRole} onValueChange={(value) => setRoleChangeNewRole(value as typeof roleChangeNewRole)}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>{roleLabel(roleChangeNewRole)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {me.role === "super_admin" ? <SelectItem value="super_admin">Super Admin</SelectItem> : null}
@@ -2260,7 +2264,9 @@ function DashboardContent() {
                     <Label>Audience</Label>
                     <Select value={broadcastScope} onValueChange={(value) => setBroadcastScope(value as typeof broadcastScope)}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>
+                          {broadcastScope === "all" ? "All users" : broadcastScope === "student" ? "Students" : broadcastScope === "invigilator" ? "Invigilators" : broadcastScope === "finance" ? "Finance" : "Admins"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All users</SelectItem>
@@ -2369,7 +2375,7 @@ function DashboardContent() {
                       <div className="space-y-1">
                         <Label>Fee Status</Label>
                         <Select value={editStudentFeeStatus} onValueChange={(v) => setEditStudentFeeStatus(v as typeof editStudentFeeStatus)}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger><SelectValue>{editStudentFeeStatus === "cleared" ? "Cleared" : "Outstanding"}</SelectValue></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="cleared">Cleared</SelectItem>
                             <SelectItem value="outstanding">Outstanding</SelectItem>
@@ -2425,7 +2431,7 @@ function DashboardContent() {
                     <Input type="number" value={newStudentSemester} onChange={(event) => setNewStudentSemester(Number(event.target.value || 1))} placeholder="Semester" />
                     <Input value={newStudentAcademicYear} onChange={(event) => setNewStudentAcademicYear(event.target.value)} placeholder="Academic year" />
                     <Select value={newStudentFeeStatus} onValueChange={(value) => setNewStudentFeeStatus(value as "cleared" | "outstanding")}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue>{newStudentFeeStatus === "cleared" ? "Cleared" : "Outstanding"}</SelectValue></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="outstanding">Outstanding</SelectItem>
                         <SelectItem value="cleared">Cleared</SelectItem>
@@ -2734,7 +2740,7 @@ function DashboardContent() {
                     </SelectContent>
                   </Select>
                   <Select value={clearanceFeeStatus} onValueChange={(value) => setClearanceFeeStatus(value as "cleared" | "outstanding")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger><SelectValue>{clearanceFeeStatus === "cleared" ? "Cleared" : "Outstanding"}</SelectValue></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cleared">Cleared</SelectItem>
                       <SelectItem value="outstanding">Outstanding</SelectItem>
@@ -2829,7 +2835,9 @@ function DashboardContent() {
                               }}
                             >
                               <SelectTrigger className="h-7 w-[90px]">
-                                <SelectValue placeholder="Update" />
+                                <SelectValue placeholder="Update">
+                                  {payment.status === "pending" ? "Pending" : payment.status === "approved" ? "Approved" : "Paid"}
+                                </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
@@ -3087,7 +3095,7 @@ function DashboardContent() {
                 <div className="space-y-3">
                   <Textarea value={announcementMessage} onChange={(event) => setAnnouncementMessage(event.target.value)} placeholder="Announcement message..." rows={2} />
                   <Select value={announcementSeverity} onValueChange={(v) => setAnnouncementSeverity(v as typeof announcementSeverity)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger><SelectValue>{announcementSeverity === "info" ? "Info" : announcementSeverity === "warning" ? "Warning" : "Critical"}</SelectValue></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="info">Info</SelectItem>
                       <SelectItem value="warning">Warning</SelectItem>
@@ -3139,7 +3147,9 @@ function DashboardContent() {
             <Label htmlFor="complaint-category">Category</Label>
             <Select value={complaintCategory} onValueChange={(value) => setComplaintCategory(value as typeof complaintCategory)}>
               <SelectTrigger id="complaint-category">
-                <SelectValue />
+                <SelectValue>
+                  {complaintCategory === "wrong_seat" ? "Wrong seat" : complaintCategory === "wrong_timetable" ? "Wrong timetable" : complaintCategory === "wrong_details" ? "Wrong details" : complaintCategory === "payment_issue" ? "Payment issue" : complaintCategory === "id_verification_issue" ? "ID verification issue" : complaintCategory === "attendance_system_issue" ? "Attendance issue" : complaintCategory === "schedule_conflict" ? "Schedule conflict" : complaintCategory === "room_issue" ? "Room issue" : "Other"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="wrong_seat">Wrong seat</SelectItem>
@@ -3212,7 +3222,9 @@ function DashboardContent() {
             <div className="space-y-3">
               <Select value={complaintActionId || undefined} onValueChange={(value) => setComplaintActionId(value as Id<"complaints">)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select complaint" />
+                  <SelectValue placeholder="Select complaint">
+                    {complaints?.find(c => c._id === complaintActionId)?.subject ?? "Select complaint"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(complaints ?? []).filter((item) => item.status !== "resolved").map((item) => (
@@ -3224,7 +3236,9 @@ function DashboardContent() {
               </Select>
               <Select value={complaintNewStatus} onValueChange={(value) => setComplaintNewStatus(value as typeof complaintNewStatus)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {complaintNewStatus === "open" ? "Open" : complaintNewStatus === "in_review" ? "In Review" : complaintNewStatus === "resolved" ? "Resolved" : "Rejected"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">Open</SelectItem>
@@ -4193,7 +4207,7 @@ function RoleOperations({
                           <TableCell className="text-xs">{schedule.invigilator?.fullName ?? "—"}</TableCell>
                           <TableCell>
                             <Select value={editState.editScheduleStatus} onValueChange={(value) => editSetters.setEditScheduleStatus(value as "draft" | "published" | "ongoing" | "completed")}>
-                              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-7 text-xs"><SelectValue>{editState.editScheduleStatus === "draft" ? "Draft" : editState.editScheduleStatus === "published" ? "Published" : editState.editScheduleStatus === "ongoing" ? "Ongoing" : "Completed"}</SelectValue></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="draft">Draft</SelectItem>
                                 <SelectItem value="published">Published</SelectItem>
