@@ -347,7 +347,7 @@ function AuthenticatedHome() {
               <Clock3 className="size-4 text-primary" />
               {timetableTitle}
             </CardTitle>
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider bg-background">University scoped</Badge>
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider bg-background">Your university</Badge>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <Table>
@@ -480,13 +480,13 @@ function AuthenticatedHome() {
                     <div className="mt-0.5 rounded-full bg-primary/10 p-1">
                       <Clock3 className="size-3.5 text-primary" />
                     </div>
-                    <p className="leading-relaxed">Offline attendance actions queue for conflict-aware sync.</p>
+                    <p className="leading-relaxed">Attendance can be recorded offline and synced when connected.</p>
                   </div>
                   <div className="flex gap-3 items-start">
                     <div className="mt-0.5 rounded-full bg-primary/10 p-1">
                       <Fingerprint className="size-3.5 text-primary" />
                     </div>
-                    <p className="leading-relaxed">Verification events and penalty transitions are audited.</p>
+                    <p className="leading-relaxed">All verification events and penalties are recorded for review.</p>
                   </div>
                 </div>
               </CardContent>

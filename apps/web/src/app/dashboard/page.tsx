@@ -83,7 +83,7 @@ function LoadingState() {
           <div className="mx-auto size-8 animate-spin border-2 border-primary border-t-transparent" />
           <p className="text-sm font-medium">Loading examination workspace...</p>
           <p className="text-xs text-muted-foreground">
-            Preparing role dashboards, attendance, and seating context.
+            Preparing your workspace...
           </p>
         </div>
       </div>
@@ -102,7 +102,7 @@ function SignInState() {
           <div>
             <h2 className="font-sans text-xl font-medium tracking-tight">Authentication Required</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Sign in with your institution account to access role-based exam operations.
+              Sign in with your institution account to access exam operations.
             </p>
           </div>
           <SignInButton>
@@ -531,7 +531,7 @@ function DashboardContent() {
       });
       toast.success("University created");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to seed tenant");
+      toast.error(error instanceof Error ? error.message : "Failed to create university");
     } finally {
       setSeedStatus("idle");
     }
@@ -1516,8 +1516,10 @@ function DashboardContent() {
                  value={selectedUniversityId || (universities?.[0]?._id ?? "")}
                  onValueChange={(value) => setSelectedUniversityId(value as Id<"universities">)}
                >
-                 <SelectTrigger id="tenantSelect">
-                   <SelectValue placeholder="Select university" />
+                  <SelectTrigger id="tenantSelect">
+                    <SelectValue placeholder="Select university">
+                      {universities?.find(u => u._id === selectedUniversityId)?.name}
+                    </SelectValue>
                  </SelectTrigger>
                  <SelectContent>
                    {(universities ?? []).map((university) => (
@@ -2444,12 +2446,12 @@ function DashboardContent() {
                 <Separator className="mb-3" />
                 <div className="space-y-3">
                   <p className="text-[11px] text-muted-foreground">
-                    Paste CSV with columns: studentId, indexNumber, fullName, email, phone
+                    Paste CSV with columns: Student ID, Index Number, Full Name, Email, Phone
                   </p>
                   <Textarea
                     value={csvContent}
                     onChange={(event) => setCsvContent(event.target.value)}
-                    placeholder="studentId,indexNumber,fullName,email,phone&#10;STU001,IDX001,Jane Doe,jane@uni.edu,+1234"
+                    placeholder="Student ID,Index Number,Full Name,Email,Phone&#10;STU001,IDX001,Jane Doe,jane@uni.edu,+1234"
                     className="font-mono text-xs"
                     rows={5}
                   />
@@ -3271,7 +3273,7 @@ function DashboardContent() {
               <span className="font-medium">{unread}</span>
             </div>
             <div className="flex items-center justify-between rounded-md border bg-background/60 p-2">
-              <span>Tenant count</span>
+              <span>Universities</span>
               <span className="font-medium">{universities?.length ?? 0}</span>
             </div>
             {me.role !== "finance" ? (
@@ -3618,14 +3620,14 @@ function RoleOperations({
                       <TableCell className="text-xs font-medium">{entry.course?.code ?? "—"} {entry.course?.name ? `· ${entry.course.name}` : ""}</TableCell>
                       <TableCell className="text-xs">{entry.program?.code ?? "—"}</TableCell>
                       <TableCell className="text-xs">{entry.room?.name ?? entry.room?.code ?? "TBA"}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{entry.status}</Badge></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          ) : (
-            <p className="text-xs text-muted-foreground">No exams scheduled for your program yet.</p>
+                       <TableCell><Badge variant="outline" className="text-[10px]">{roleLabel(entry.status)}</Badge></TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
+               </Table>
+             </ScrollArea>
+           ) : (
+             <p className="text-xs text-muted-foreground">No exams scheduled for your program yet.</p>
           )}
         </div>
       </section>
@@ -3688,14 +3690,14 @@ function RoleOperations({
                       <TableCell className="text-xs font-medium">{entry.course?.code ?? "—"} {entry.course?.name ? `· ${entry.course.name}` : ""}</TableCell>
                       <TableCell className="text-xs">{entry.program?.code ?? "—"}</TableCell>
                       <TableCell className="text-xs">{entry.room?.name ?? entry.room?.code ?? "TBA"}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">{entry.status}</Badge></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          ) : (
-            <p className="text-xs text-muted-foreground">No exam assignments found.</p>
+                       <TableCell><Badge variant="outline" className="text-[10px]">{roleLabel(entry.status)}</Badge></TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
+               </Table>
+             </ScrollArea>
+           ) : (
+             <p className="text-xs text-muted-foreground">No exam assignments found.</p>
           )}
         </div>
       </section>
@@ -4221,7 +4223,7 @@ function RoleOperations({
                           <TableCell className="text-xs">{schedule.program?.code ?? "—"}</TableCell>
                           <TableCell className="text-xs">{schedule.room?.code ?? "—"}</TableCell>
                           <TableCell className="text-xs">{schedule.invigilator?.fullName ?? "—"}</TableCell>
-                          <TableCell><Badge variant="outline" className="text-[10px]">{schedule.status ?? "draft"}</Badge></TableCell>
+                          <TableCell><Badge variant="outline" className="text-[10px]">{roleLabel(schedule.status ?? "draft")}</Badge></TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" title="Edit schedule" onClick={() => {
