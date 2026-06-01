@@ -12,6 +12,7 @@ import {
   ChartColumn,
   Check,
   CreditCard,
+  FileDown,
   FileText,
   GraduationCap,
   IdCard,
@@ -33,7 +34,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@uni-exam-sys/ui/components/alert";
@@ -72,6 +73,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@uni-exam-sys/ui/compo
 import { Textarea } from "@uni-exam-sys/ui/components/textarea";
 
 import { formatDate, formatDateTime, roleLabel } from "@/lib/utils";
+import { downloadCsv, downloadPdf, type PdfTable } from "@/lib/reports";
 
 function LoadingState() {
   return (
@@ -266,6 +268,22 @@ function DashboardContent() {
 
   // Penalty reset state
   const [resetPenaltyReason, setResetPenaltyReason] = useState("");
+  const [reportScheduleId, setReportScheduleId] = useState<Id<"examSchedules"> | "">("");
+  const [reportSeatingScheduleId, setReportSeatingScheduleId] = useState<Id<"examSchedules"> | "">("");
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState("");
+  const [brandingPrimaryColor, setBrandingPrimaryColor] = useState("#0f172a");
+  const [brandingSecondaryColor, setBrandingSecondaryColor] = useState("#3b82f6");
+  const [editingStudentId, setEditingStudentId] = useState<Id<"students"> | null>(null);
+  const [editStudentName, setEditStudentName] = useState("");
+  const [editStudentEmail, setEditStudentEmail] = useState("");
+  const [editStudentPhone, setEditStudentPhone] = useState("");
+  const [editStudentSemester, setEditStudentSemester] = useState(1);
+  const [editStudentFeeStatus, setEditStudentFeeStatus] = useState<"cleared" | "outstanding">("cleared");
+  const [editStudentBalance, setEditStudentBalance] = useState(0);
+  const [editStudentLateReg, setEditStudentLateReg] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState("");
+  const [announcementSeverity, setAnnouncementSeverity] = useState<"info" | "warning" | "critical">("info");
+  const [announcementActiveTo, setAnnouncementActiveTo] = useState("");
 
   const createUniversity = useMutation(api.bootstrap.createUniversity);
   const createProgram = useMutation(api.academics.createProgram);
@@ -306,7 +324,6 @@ function DashboardContent() {
   const deleteInvigilatorAssignment = useMutation(api.assignments.deleteInvigilatorAssignment);
   const updateStudentMutation = useMutation(api.students.updateStudent);
   const resetPenalty = useMutation(api.verification.resetPenalty);
-
   const universities = useQuery(api.tenants.listUniversities, me ? {} : "skip");
   const activeUniversityId =
     me?.role === "super_admin"
@@ -315,6 +332,15 @@ function DashboardContent() {
         : undefined
       )
       : scopedUniversityId;
+  const getBranding = useQuery(api.tenants.getBranding, activeUniversityId ? { universityId: activeUniversityId } : "skip");
+  const updateBranding = useMutation(api.tenants.updateBranding);
+  const updateAllowedEmailDomains = useMutation(api.tenants.updateAllowedEmailDomains);
+  const timetableReport = useQuery(api.reports.timetableReport, activeUniversityId ? { universityId: activeUniversityId } : "skip");
+  const seatingReport = useQuery(api.reports.seatingReport, reportSeatingScheduleId ? { examScheduleId: reportSeatingScheduleId } : "skip");
+  const createEmergencyAnnouncement = useMutation(api.announcements.createEmergencyAnnouncement);
+  const listEmergencyAnnouncements = useQuery(api.announcements.listEmergencyAnnouncements, activeUniversityId ? { universityId: activeUniversityId } : "skip");
+  const deleteEmergencyAnnouncement = useMutation(api.announcements.deleteEmergencyAnnouncement);
+
   const adminDashboard = useQuery(
     api.dashboard.adminDashboard,
     ((me?.role === "super_admin" || me?.role === "university_admin") && activeUniversityId)
@@ -1155,6 +1181,243 @@ function DashboardContent() {
     }
   }
 
+  function handleDownloadTimetablePdf() {
+    if (!timetableReport?.length) {
+      toast.error("No timetable data available");
+      return;
+    }
+    const tables: PdfTable[] = [{
+      title: "Exam Timetable Report",
+      subtitle: `Generated: ${new Date().toLocaleDateString()} | University: ${me?.university?.name ?? "N/A"}`,
+      columns: [
+        { header: "Date", width: 80 },
+        { header: "Time", width: 70 },
+        { header: "Course", width: 100 },
+        { header: "Program", width: 100 },
+        { header: "Room", width: 70 },
+        { header: "Invigilator", width: 80 },
+        { header: "Status", width: 60 },
+      ],
+      rows: timetableReport.map((s) => [
+        s.examDate,
+        `${s.startTime ?? ""} - ${s.endTime ?? ""}`,
+        `${s.courseCode ?? ""} ${s.courseName ?? ""}`,
+        s.program ?? "",
+        s.room ?? "",
+        s.invigilator ?? "",
+        s.status ?? "",
+      ]),
+    }];
+    downloadPdf("timetable-report.pdf", tables);
+  }
+
+  function handleDownloadAttendancePdf() {
+    if (!reportScheduleId) return;
+    const schedule = schedules?.find((s) => s._id === reportScheduleId);
+    const chart = seatingChartScheduleId === reportScheduleId ? seatingChart : null;
+    const tables: PdfTable[] = [{
+      title: "Attendance Register",
+      subtitle: `${schedule?.examDate ?? ""} | ${schedule?.course?.code ?? ""} - ${schedule?.course?.name ?? ""} | ${schedule?.room?.name ?? ""}`,
+      columns: [
+        { header: "Seat", width: 60 },
+        { header: "Student ID", width: 100 },
+        { header: "Name", width: 150 },
+        { header: "Index", width: 80 },
+        { header: "Status", width: 80 },
+      ],
+      rows: (chart?.rows ?? []).map((r) => [
+        r.seatNumber,
+        r.studentId,
+        r.studentName,
+        r.indexNumber,
+        "—",
+      ]),
+    }];
+    downloadPdf("attendance-register.pdf", tables);
+  }
+
+  function handleDownloadSeatingPdf() {
+    if (!seatingReport?.rows?.length) {
+      toast.error("No seating data for this exam");
+      return;
+    }
+    const tables: PdfTable[] = [{
+      title: "Seating Chart",
+      subtitle: `${seatingReport.examDate} | ${seatingReport.courseCode} - ${seatingReport.courseName}`,
+      columns: [
+        { header: "Seat", width: 60 },
+        { header: "Student ID", width: 100 },
+        { header: "Name", width: 150 },
+        { header: "Index", width: 80 },
+        { header: "Room", width: 100 },
+      ],
+      rows: seatingReport.rows.map((r) => [
+        r.seatNumber,
+        r.studentId,
+        r.studentName,
+        r.indexNumber,
+        `${r.roomName} (${r.roomCode})`,
+      ]),
+    }];
+    downloadPdf("seating-chart.pdf", tables);
+  }
+
+  function handleDownloadClearancePdf() {
+    if (!financeClearanceOverview?.rows?.length) return;
+    const tables: PdfTable[] = [{
+      title: "Student Fee Clearance Report",
+      subtitle: `Generated: ${new Date().toLocaleDateString()} | Total: ${financeClearanceOverview.totalStudents} | Cleared: ${financeClearanceOverview.cleared} | Outstanding: ${financeClearanceOverview.outstanding}`,
+      columns: [
+        { header: "Student ID", width: 100 },
+        { header: "Name", width: 160 },
+        { header: "Fee Status", width: 80 },
+        { header: "Balance", width: 80 },
+        { header: "Semester", width: 60 },
+      ],
+      rows: financeClearanceOverview.rows.map((r) => [
+        r.studentId,
+        r.fullName,
+        r.feeStatus,
+        r.outstandingBalance.toLocaleString(),
+        String(r.semester),
+      ]),
+    }];
+    downloadPdf("clearance-report.pdf", tables);
+  }
+
+  function handleDownloadPaymentsPdf() {
+    const payments = financeReports?.payments ?? [];
+    if (!payments.length) return;
+    const tables: PdfTable[] = [{
+      title: "Payment Records",
+      subtitle: `Generated: ${new Date().toLocaleDateString()}`,
+      columns: [
+        { header: "Reference", width: 120 },
+        { header: "Type", width: 100 },
+        { header: "Amount", width: 80 },
+        { header: "Status", width: 80 },
+        { header: "Created", width: 100 },
+      ],
+      rows: payments.map((p) => [
+        p.reference,
+        p.type.replaceAll("_", " "),
+        p.amount.toLocaleString(),
+        p.status,
+        formatDate(p.createdAt),
+      ]),
+    }];
+    downloadPdf("payment-records.pdf", tables);
+  }
+
+  async function handleUpdateBranding() {
+    if (!activeUniversityId) return;
+    try {
+      await updateBranding({
+        universityId: activeUniversityId,
+        logoUrl: brandingLogoUrl || undefined,
+        primaryColor: brandingPrimaryColor,
+        secondaryColor: brandingSecondaryColor,
+      });
+      toast.success("Branding updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update branding");
+    }
+  }
+
+  async function handleUpdateEmailDomains() {
+    if (!activeUniversityId || !tenantDomains) {
+      toast.error("Email domains are required");
+      return;
+    }
+    try {
+      const domains = tenantDomains.split(",").map((d) => d.trim()).filter(Boolean);
+      await updateAllowedEmailDomains({
+        universityId: activeUniversityId,
+        allowedEmailDomains: domains,
+      });
+      toast.success("Email domains updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update domains");
+    }
+  }
+
+  async function handleSaveStudent() {
+    if (!editingStudentId) return;
+    try {
+      await updateStudentMutation({
+        studentDocId: editingStudentId,
+        fullName: editStudentName || undefined,
+        email: editStudentEmail || undefined,
+        phone: editStudentPhone || undefined,
+        semester: editStudentSemester || undefined,
+        feeStatus: editStudentFeeStatus || undefined,
+        outstandingBalance: editStudentBalance,
+        lateRegistration: editStudentLateReg,
+      });
+      setEditingStudentId(null);
+      toast.success("Student updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update student");
+    }
+  }
+
+  function startEditStudent(student: { _id: Id<"students">; fullName: string; email?: string | null; phone?: string | null; semester: number; feeStatus: string; outstandingBalance: number; lateRegistration: boolean }) {
+    setEditingStudentId(student._id);
+    setEditStudentName(student.fullName);
+    setEditStudentEmail(student.email ?? "");
+    setEditStudentPhone(student.phone ?? "");
+    setEditStudentSemester(student.semester);
+    setEditStudentFeeStatus(student.feeStatus as "cleared" | "outstanding");
+    setEditStudentBalance(student.outstandingBalance);
+    setEditStudentLateReg(student.lateRegistration);
+  }
+
+  async function handleCreateAnnouncement() {
+    if (!activeUniversityId || !announcementMessage || !announcementActiveTo) {
+      toast.error("Message and expiry date are required");
+      return;
+    }
+    const activeTo = new Date(announcementActiveTo).getTime();
+    if (activeTo <= Date.now()) {
+      toast.error("Expiry date must be in the future");
+      return;
+    }
+    try {
+      await createEmergencyAnnouncement({
+        universityId: activeUniversityId,
+        message: announcementMessage,
+        severity: announcementSeverity,
+        activeFrom: Date.now(),
+        activeTo,
+      });
+      setAnnouncementMessage("");
+      toast.success("Announcement created");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create announcement");
+    }
+  }
+
+  async function handleDeleteAnnouncement(id: Id<"emergencyAnnouncements">) {
+    try {
+      await deleteEmergencyAnnouncement({ announcementId: id });
+      toast.success("Announcement deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete");
+    }
+  }
+
+  const activeAnnouncements = listEmergencyAnnouncements ?? [];
+
+  const brandingLoaded = useRef(false);
+  useEffect(() => {
+    if (getBranding && !brandingLoaded.current) {
+      setBrandingLogoUrl(getBranding.logoUrl ?? "");
+      setBrandingPrimaryColor(getBranding.primaryColor ?? "#0f172a");
+      setBrandingSecondaryColor(getBranding.secondaryColor ?? "#3b82f6");
+      brandingLoaded.current = true;
+    }
+  }, [getBranding]);
+
   if (!me) {
     return (
       <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
@@ -1305,7 +1568,7 @@ function DashboardContent() {
               <TabsTrigger value="id-cards">ID Cards</TabsTrigger>
             ) : null}
             <TabsTrigger value="messages">Messages</TabsTrigger>
-            {me.role === "super_admin" ? <TabsTrigger value="tenant">Tenant</TabsTrigger> : null}
+            {(me.role === "super_admin" || me.role === "university_admin") ? <TabsTrigger value="tenant">Tenant</TabsTrigger> : null}
           </TabsList>
 
           <TabsContent value="operations" className="space-y-4 pt-4">
@@ -1546,6 +1809,7 @@ function DashboardContent() {
         </TabsContent>
         ) : null}
 
+{/* ── Verification Tab ── */}
           {(me.role === "super_admin" || me.role === "university_admin" || me.role === "invigilator") ? (
           <TabsContent value="verification" className="space-y-4 pt-4">
           {me.role === "invigilator" ? (
@@ -1597,7 +1861,7 @@ function DashboardContent() {
                       onChange={(event) => setVerificationPenaltyPoints(Number(event.target.value || 0))}
                     />
                   </>
-          ) : null}
+                ) : null}
                 <Button className="w-full" onClick={handleVerifyStudent}>
                   Log verification
                 </Button>
@@ -1622,6 +1886,111 @@ function DashboardContent() {
                   {(verificationMatches?.length ?? 0) === 0 ? (
                     <p className="text-muted-foreground">Search for a student to verify identity details.</p>
                   ) : null}
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+              <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">Penalty Threshold Monitor</h2>
+                  <Badge variant="outline">Semester scoped</Badge>
+                </div>
+                <Separator className="mb-3" />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Points</TableHead>
+                      <TableHead>Warning</TableHead>
+                      <TableHead>Admin Review</TableHead>
+                      <TableHead>Disciplinary</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(penalties ?? []).slice(0, 8).map((row) => {
+                      const student = studentsList?.find((s: { _id: string }) => s._id === row.studentId);
+                      return (
+                        <TableRow key={row._id}>
+                          <TableCell className="text-xs">{student?.fullName ?? student?.studentId ?? "Unknown"}</TableCell>
+                          <TableCell>{row.totalPoints}</TableCell>
+                          <TableCell>{row.warningSent ? "Yes" : "No"}</TableCell>
+                          <TableCell>{row.adminReviewTriggered ? "Yes" : "No"}</TableCell>
+                          <TableCell>{row.disciplinaryFlag ? "Yes" : "No"}</TableCell>
+                          <TableCell>
+                            {row.totalPoints > 0 ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  className="h-7 w-28 text-xs"
+                                  placeholder="Reset reason"
+                                  value={resetPenaltyReason}
+                                  onChange={(event) => setResetPenaltyReason(event.target.value)}
+                                />
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleResetPenalty(row._id)}>
+                                  Reset
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Clean</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                  <h2 className="mb-2 text-sm font-semibold">Verification Policy Safeguards</h2>
+                  <Separator className="mb-3" />
+                  <ul className="space-y-2 text-xs text-muted-foreground">
+                    <li className="flex gap-2">
+                      <BadgeCheck className="mt-0.5 size-3.5 text-primary" />
+                      Penalty is explicit, never silently applied.
+                    </li>
+                    <li className="flex gap-2">
+                      <BadgeCheck className="mt-0.5 size-3.5 text-primary" />
+                      Every verification captures reason and invigilator context.
+                    </li>
+                    <li className="flex gap-2">
+                      <BadgeCheck className="mt-0.5 size-3.5 text-primary" />
+                      Threshold transitions are tracked for warning, review, and disciplinary states.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold">Verification History</h2>
+                    <Badge variant="outline">{verificationHistory?.length ?? 0} entries</Badge>
+                  </div>
+                  <Separator className="mb-3" />
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {(verificationHistory ?? []).slice(0, 20).map((entry) => (
+                        <div key={entry._id} className="rounded-md border bg-background/40 p-2 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium">{entry.student?.fullName ?? "Unknown"}</span>
+                            {entry.penaltyApplied ? (
+                              <Badge variant="destructive" className="text-[10px]">{entry.penaltyPoints}pt</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">No penalty</Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground">{entry.reason}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatDateTime(entry.timestamp)} · {entry.invigilator?.fullName ?? "System"}
+                          </p>
+                        </div>
+                      ))}
+                      {(verificationHistory?.length ?? 0) === 0 ? (
+                        <p className="text-xs text-muted-foreground">No verification records yet.</p>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
             </section>
@@ -1703,22 +2072,136 @@ function DashboardContent() {
 
           {(me.role === "super_admin" || me.role === "university_admin" || me.role === "finance") ? (
           <TabsContent value="reports" className="space-y-4 pt-4">
-          <section className="rounded-md border bg-background/60 p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Export and Reporting</h2>
-              <Badge variant="outline">Print/CSV ready</Badge>
-            </div>
-            <Separator className="mb-3" />
-            <div className="grid gap-3 sm:grid-cols-3">
-              <ReportPane title="Students CSV" value={reportsCsv?.studentsCsv ?? "Not available"} />
-              <ReportPane title="Rooms CSV" value={reportsCsv?.roomsCsv ?? "Not available"} />
-              <ReportPane
-                title="Schedules CSV"
-                value={reportsCsv?.schedulesCsv ?? "Not available"}
-              />
-            </div>
-          </section>
-        </TabsContent>
+            <section className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">Data Exports</h2>
+                  <Badge variant="outline">CSV</Badge>
+                </div>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Students CSV</p>
+                      <p className="text-[11px] text-muted-foreground">All student records with program and fee info</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => reportsCsv?.studentsCsv && downloadCsv("students.csv", reportsCsv.studentsCsv)} disabled={!reportsCsv?.studentsCsv}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Rooms CSV</p>
+                      <p className="text-[11px] text-muted-foreground">All room records with capacity and type</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => reportsCsv?.roomsCsv && downloadCsv("rooms.csv", reportsCsv.roomsCsv)} disabled={!reportsCsv?.roomsCsv}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Schedules CSV</p>
+                      <p className="text-[11px] text-muted-foreground">All exam schedules with date, time, and status</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => reportsCsv?.schedulesCsv && downloadCsv("schedules.csv", reportsCsv.schedulesCsv)} disabled={!reportsCsv?.schedulesCsv}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">PDF Reports</h2>
+                  <Badge variant="outline">PDF</Badge>
+                </div>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Timetable Report</p>
+                      <p className="text-[11px] text-muted-foreground">All exam schedules in printable format</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleDownloadTimetablePdf} disabled={!activeUniversityId || (schedules?.length ?? 0) === 0}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Attendance Register</p>
+                      <p className="text-[11px] text-muted-foreground">Attendance report for selected schedule</p>
+                    </div>
+                    <Select value={reportScheduleId || undefined} onValueChange={(v) => setReportScheduleId(v as Id<"examSchedules">)}>
+                      <SelectTrigger className="h-7 w-[120px] text-xs">
+                        <SelectValue placeholder="Select exam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(schedules ?? []).map((s) => (
+                          <SelectItem key={s._id} value={s._id}>{s.examDate} {s.course?.code}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={handleDownloadAttendancePdf} disabled={!reportScheduleId}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-medium">Seating Chart</p>
+                      <p className="text-[11px] text-muted-foreground">Seating assignments for selected exam</p>
+                    </div>
+                    <Select value={reportSeatingScheduleId || undefined} onValueChange={(v) => setReportSeatingScheduleId(v as Id<"examSchedules">)}>
+                      <SelectTrigger className="h-7 w-[120px] text-xs">
+                        <SelectValue placeholder="Select exam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(schedules ?? []).map((s) => (
+                          <SelectItem key={s._id} value={s._id}>{s.examDate} {s.course?.code}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="sm" onClick={handleDownloadSeatingPdf} disabled={!reportSeatingScheduleId}>
+                      <FileDown className="mr-1 size-3.5" /> Download
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {me.role === "super_admin" || me.role === "university_admin" ? (
+            <section className="rounded-md border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Financial Reports</h2>
+              </div>
+              <Separator className="mb-3" />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium">Clearance Summary</p>
+                    <p className="text-[11px] text-muted-foreground">Student fee clearance overview</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadClearancePdf} disabled={!financeClearanceOverview?.rows?.length}>
+                    <FileDown className="mr-1 size-3.5" /> Download
+                  </Button>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium">Payment Records</p>
+                    <p className="text-[11px] text-muted-foreground">All payment records including student fees and invigilator payments</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadPaymentsPdf} disabled={!(financeReports?.payments?.length ?? 0) > 0}>
+                    <FileDown className="mr-1 size-3.5" /> Download
+                  </Button>
+                </div>
+              </div>
+            </section>
+            ) : null}
+          </TabsContent>
           ) : null}
 
         {/* ── User Management Tab ── */}
@@ -1911,15 +2394,76 @@ function DashboardContent() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => handleDeleteStudent(student._id)}>
-                            Delete
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="sm" onClick={() => startEditStudent(student)}>
+                              <Pencil className="mr-1 size-3" />
+                              Edit
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteStudent(student._id)}>
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </ScrollArea>
+
+              <Dialog open={editingStudentId !== null} onOpenChange={(open) => { if (!open) setEditingStudentId(null); }}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Edit Student</DialogTitle>
+                    <DialogDescription>Update student details. Changes are saved immediately.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label>Full Name</Label>
+                      <Input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label>Email</Label>
+                        <Input value={editStudentEmail} onChange={(e) => setEditStudentEmail(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Phone</Label>
+                        <Input value={editStudentPhone} onChange={(e) => setEditStudentPhone(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label>Semester</Label>
+                        <Input type="number" value={editStudentSemester} onChange={(e) => setEditStudentSemester(Number(e.target.value))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Fee Status</Label>
+                        <Select value={editStudentFeeStatus} onValueChange={(v) => setEditStudentFeeStatus(v as typeof editStudentFeeStatus)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cleared">Cleared</SelectItem>
+                            <SelectItem value="outstanding">Outstanding</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label>Outstanding Balance</Label>
+                        <Input type="number" value={editStudentBalance} onChange={(e) => setEditStudentBalance(Number(e.target.value))} />
+                      </div>
+                      <div className="flex items-center gap-2 pt-5">
+                        <Switch checked={editStudentLateReg} onCheckedChange={(v) => setEditStudentLateReg(v)} />
+                        <Label>Late Registration</Label>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button className="flex-1" onClick={handleSaveStudent}>Save Changes</Button>
+                      <Button variant="outline" onClick={() => setEditingStudentId(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             <div className="space-y-4">
@@ -2494,8 +3038,24 @@ function DashboardContent() {
           </section>
         </TabsContent>
 
-          {me.role === "super_admin" ? (
+{me.role === "super_admin" ? (
           <TabsContent value="tenant" className="space-y-4 pt-4">
+            {activeAnnouncements.length > 0 ? (
+              <div className="space-y-2">
+                {activeAnnouncements.map((ann) => (
+                  <div key={ann._id} className={`flex items-center justify-between gap-3 rounded-md border p-3 text-xs ${ann.severity === "critical" ? "border-destructive bg-destructive/10" : ann.severity === "warning" ? "border-yellow-500 bg-yellow-500/10" : "border-primary/30 bg-primary/5"}`}>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={ann.severity === "critical" ? "destructive" : ann.severity === "warning" ? "secondary" : "outline"}>{ann.severity}</Badge>
+                      <span className="font-medium">{ann.message}</span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => handleDeleteAnnouncement(ann._id)}>
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
           <section className="grid gap-4 lg:grid-cols-[1.1fr_1fr]">
             <div className="rounded-md border bg-background/60 p-4 shadow-sm">
               <h2 className="mb-2 text-sm font-semibold">Tenant Registry</h2>
@@ -2522,52 +3082,98 @@ function DashboardContent() {
               </Table>
             </div>
 
-            <div className="rounded-md border bg-background/60 p-4 shadow-sm">
-              <h2 className="mb-2 text-sm font-semibold">University Creation</h2>
-              <Separator className="mb-3" />
-              {me.role === "super_admin" ? (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold">University Creation</h2>
+                <Separator className="mb-3" />
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <Label htmlFor="tenantName">University name</Label>
-                    <Input
-                      id="tenantName"
-                      value={tenantName}
-                      onChange={(event) => setTenantName(event.target.value)}
-                    />
+                    <Input id="tenantName" value={tenantName} onChange={(event) => setTenantName(event.target.value)} />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="tenantCode">University code</Label>
-                    <Input
-                      id="tenantCode"
-                      value={tenantCode}
-                      onChange={(event) => setTenantCode(event.target.value)}
-                    />
+                    <Input id="tenantCode" value={tenantCode} onChange={(event) => setTenantCode(event.target.value)} />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="tenantDomains">Allowed email domains</Label>
-                    <Input
-                      id="tenantDomains"
-                      value={tenantDomains}
-                      onChange={(event) => setTenantDomains(event.target.value)}
-                      placeholder="nku.edu,students.nku.edu"
-                    />
+                    <Input id="tenantDomains" value={tenantDomains} onChange={(event) => setTenantDomains(event.target.value)} placeholder="nku.edu,students.nku.edu" />
                   </div>
-                  <Button
-                    onClick={handleSeedTenant}
-                    disabled={seedStatus === "running" || !tenantName || !tenantCode || !tenantDomains}
-                  >
+                  <Button onClick={handleSeedTenant} disabled={seedStatus === "running" || !tenantName || !tenantCode || !tenantDomains}>
                     {seedStatus === "running" ? "Creating..." : "Create university"}
                   </Button>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Only super admin can create and configure universities.
-                </p>
-              )}
+              </div>
+
+              {(me.role === "super_admin" || me.role === "university_admin") ? (
+              <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold">Branding Settings</h2>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="brandingLogo">Logo URL</Label>
+                    <Input id="brandingLogo" value={brandingLogoUrl} onChange={(event) => setBrandingLogoUrl(event.target.value)} placeholder="https://example.com/logo.png" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="brandingPrimary">Primary Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input type="color" value={brandingPrimaryColor} onChange={(event) => setBrandingPrimaryColor(event.target.value)} className="h-8 w-10 p-1" />
+                        <Input value={brandingPrimaryColor} onChange={(event) => setBrandingPrimaryColor(event.target.value)} className="font-mono text-xs" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="brandingSecondary">Secondary Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input type="color" value={brandingSecondaryColor} onChange={(event) => setBrandingSecondaryColor(event.target.value)} className="h-8 w-10 p-1" />
+                        <Input value={brandingSecondaryColor} onChange={(event) => setBrandingSecondaryColor(event.target.value)} className="font-mono text-xs" />
+                      </div>
+                    </div>
+                  </div>
+                  <Button onClick={handleUpdateBranding} disabled={!activeUniversityId}>
+                    Save branding
+                  </Button>
+                </div>
+              </div>
+              ) : null}
+
+              <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold">Update Email Domains</h2>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="updateDomains">Allowed domains (comma separated)</Label>
+                    <Input id="updateDomains" value={tenantDomains} onChange={(event) => setTenantDomains(event.target.value)} placeholder="domain.edu,students.domain.edu" />
+                  </div>
+                  <Button onClick={handleUpdateEmailDomains} disabled={!activeUniversityId}>
+                    Update domains
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-background/60 p-4 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold">Emergency Announcement</h2>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <Textarea value={announcementMessage} onChange={(event) => setAnnouncementMessage(event.target.value)} placeholder="Announcement message..." rows={2} />
+                  <Select value={announcementSeverity} onValueChange={(v) => setAnnouncementSeverity(v as typeof announcementSeverity)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="info">Info</SelectItem>
+                      <SelectItem value="warning">Warning</SelectItem>
+                      <SelectItem value="critical">Critical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input type="datetime-local" value={announcementActiveTo} onChange={(event) => setAnnouncementActiveTo(event.target.value)} />
+                  <Button onClick={handleCreateAnnouncement} disabled={!activeUniversityId || !announcementMessage || !announcementActiveTo}>
+                    <Megaphone className="mr-1 size-3.5" /> Publish
+                  </Button>
+                </div>
+              </div>
             </div>
           </section>
         </TabsContent>
-        ) : null}
+          ) : null}
       </Tabs>
 
       {(me.role === "super_admin" || me.role === "university_admin" || me.role === "student" || me.role === "invigilator") ? (
