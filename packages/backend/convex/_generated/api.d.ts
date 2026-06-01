@@ -9,6 +9,7 @@
  */
 
 import type * as academics from "../academics.js";
+import type * as announcements from "../announcements.js";
 import type * as assignments from "../assignments.js";
 import type * as attendance from "../attendance.js";
 import type * as bootstrap from "../bootstrap.js";
@@ -42,6 +43,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   academics: typeof academics;
+  announcements: typeof announcements;
   assignments: typeof assignments;
   attendance: typeof attendance;
   bootstrap: typeof bootstrap;
