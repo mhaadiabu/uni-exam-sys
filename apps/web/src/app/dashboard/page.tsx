@@ -1512,15 +1512,15 @@ function DashboardContent() {
            {me.role === "super_admin" && (universities?.length ?? 0) > 0 ? (
              <div className="space-y-1">
                 <Label htmlFor="tenantSelect">University</Label>
-               <Select
-                 value={selectedUniversityId || (universities?.[0]?._id ?? "")}
-                 onValueChange={(value) => setSelectedUniversityId(value as Id<"universities">)}
-               >
-                  <SelectTrigger id="tenantSelect">
-                    <SelectValue placeholder="Select university">
-                      {universities?.find(u => u._id === selectedUniversityId)?.name}
-                    </SelectValue>
-                 </SelectTrigger>
+                <Select
+                  value={selectedUniversityId || universities?.[0]?._id || ""}
+                  onValueChange={(value) => setSelectedUniversityId(value as Id<"universities">)}
+                >
+                   <SelectTrigger id="tenantSelect">
+                     <SelectValue placeholder="Select university">
+                       {universities?.find(u => u._id === (selectedUniversityId || universities?.[0]?._id))?.name}
+                     </SelectValue>
+                  </SelectTrigger>
                  <SelectContent>
                    {(universities ?? []).map((university) => (
                      <SelectItem key={university._id} value={university._id}>
