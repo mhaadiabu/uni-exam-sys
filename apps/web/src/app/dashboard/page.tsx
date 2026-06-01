@@ -2815,7 +2815,7 @@ function DashboardContent() {
                             <Select
                               value={undefined}
                               onValueChange={async (value) => {
-                                if (value !== "pending" && value !== "approved" && value !== "paid") {
+                                if (!value || (value !== "pending" && value !== "approved" && value !== "paid")) {
                                   return;
                                 }
                                 try {
