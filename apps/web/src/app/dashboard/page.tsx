@@ -8,9 +8,11 @@ import {
   AlertCircle,
   BadgeCheck,
   Banknote,
+  BookOpen,
   CalendarClock,
   ChartColumn,
   Check,
+  ClipboardCheck,
   CreditCard,
   FileDown,
   FileText,
@@ -199,8 +201,34 @@ function DashboardContent() {
 
   // User management state
   const [roleChangeUserId, setRoleChangeUserId] = useState<Id<"users"> | "">("");
-  const [roleChangeNewRole, setRoleChangeNewRole] = useState<"super_admin" | "university_admin" | "student" | "invigilator" | "finance">("student");
-  const [userFilterRole, setUserFilterRole] = useState<"" | "super_admin" | "university_admin" | "student" | "invigilator" | "finance">("");
+  const [roleChangeNewRole, setRoleChangeNewRole] = useState<"super_admin" | "university_admin" | "lecturer" | "student" | "invigilator" | "finance">("student");
+  const [userFilterRole, setUserFilterRole] = useState<"" | "super_admin" | "university_admin" | "lecturer" | "student" | "invigilator" | "finance">("");
+
+  // Lecturer management state
+  const [lecturerStaffId, setLecturerStaffId] = useState("");
+  const [lecturerDepartment, setLecturerDepartment] = useState("");
+  const [lecturerTitle, setLecturerTitle] = useState("");
+  const [lecturerEmail, setLecturerEmail] = useState("");
+  const [lecturerFullName, setLecturerFullName] = useState("");
+  const [lecturerPhone, setLecturerPhone] = useState("");
+  const [lecturerExternalId, setLecturerExternalId] = useState("");
+  const [assignLecturerId, setAssignLecturerId] = useState<Id<"lecturers"> | "">("");
+  const [assignCourseId, setAssignCourseId] = useState<Id<"courses"> | "">("");
+  const [assignAcademicYear, setAssignAcademicYear] = useState("2025/2026");
+  const [assignSemester, setAssignSemester] = useState(1);
+  const [assignRole, setAssignRole] = useState<"primary" | "co_lecturer" | "assistant">("primary");
+
+  // Grading state
+  const [gradingCourseId, setGradingCourseId] = useState<Id<"courses"> | "">("");
+  const [gradingAcademicYear, setGradingAcademicYear] = useState("2025/2026");
+  const [gradingSemester, setGradingSemester] = useState(1);
+  const [gradingExamScheduleId, setGradingExamScheduleId] = useState<Id<"examSchedules"> | "">("");
+  const [gradingMaxScore, setGradingMaxScore] = useState(100);
+  const [gradingRemarks, setGradingRemarks] = useState("");
+  const [gradingScores, setGradingScores] = useState<Record<string, string>>({});
+  const [selectedResults, setSelectedResults] = useState<Id<"courseResults">[]>([]);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewResultId, setReviewResultId] = useState<Id<"courseResults"> | "">("");
 
   // Student management state
   const [newStudentId, setNewStudentId] = useState("");
@@ -233,7 +261,7 @@ function DashboardContent() {
   const [idCardValidityEnd, setIdCardValidityEnd] = useState("");
 
   // Broadcast state
-  const [broadcastScope, setBroadcastScope] = useState<"all" | "admin" | "student" | "invigilator" | "finance" | "super_admin">("all");
+  const [broadcastScope, setBroadcastScope] = useState<"all" | "admin" | "lecturer" | "student" | "invigilator" | "finance" | "super_admin">("all");
   const [broadcastSubject, setBroadcastSubject] = useState("");
   const [broadcastBody, setBroadcastBody] = useState("");
 
@@ -285,6 +313,14 @@ function DashboardContent() {
   const [announcementSeverity, setAnnouncementSeverity] = useState<"info" | "warning" | "critical">("info");
   const [announcementActiveTo, setAnnouncementActiveTo] = useState("");
 
+  const universities = useQuery(api.tenants.listUniversities, me ? {} : "skip");
+  const activeUniversityId =
+    me?.role === "super_admin"
+      ? selectedUniversityId || (universities && universities.length > 0
+        ? universities[0]?._id
+        : undefined
+      )
+      : scopedUniversityId;
   const createUniversity = useMutation(api.bootstrap.createUniversity);
   const createProgram = useMutation(api.academics.createProgram);
   const createCourse = useMutation(api.academics.createCourse);
@@ -304,6 +340,7 @@ function DashboardContent() {
   const requestIdCardReprint = useMutation(api.idCards.requestIdCardReprint);
   const updateUserRole = useMutation(api.users.updateUserRole);
   const deactivateUser = useMutation(api.users.deactivateUser);
+  const createUser = useMutation(api.users.createUser);
   const createStudent = useMutation(api.students.createStudent);
   const importStudentsCsv = useMutation(api.students.importStudentsCsv);
   const deleteStudent = useMutation(api.students.deleteStudent);
@@ -324,14 +361,47 @@ function DashboardContent() {
   const deleteInvigilatorAssignment = useMutation(api.assignments.deleteInvigilatorAssignment);
   const updateStudentMutation = useMutation(api.students.updateStudent);
   const resetPenalty = useMutation(api.verification.resetPenalty);
-  const universities = useQuery(api.tenants.listUniversities, me ? {} : "skip");
-  const activeUniversityId =
-    me?.role === "super_admin"
-      ? selectedUniversityId || (universities && universities.length > 0
-        ? universities[0]?._id
-        : undefined
-      )
-      : scopedUniversityId;
+  const listLecturerProfiles = useQuery(
+    api.lecturers.listLecturerProfiles,
+    (me?.role === "super_admin" || me?.role === "university_admin") && activeUniversityId
+      ? { universityId: activeUniversityId }
+      : "skip",
+  );
+  const assignLecturerToCourse = useMutation(api.lecturers.assignLecturerToCourse);
+  const removeLecturerAssignment = useMutation(api.lecturers.removeLecturerAssignment);
+  const listCourseAssignments = useQuery(
+    api.lecturers.listCourseAssignments,
+    (me?.role === "super_admin" || me?.role === "university_admin") && activeUniversityId
+      ? { universityId: activeUniversityId }
+      : "skip",
+  );
+  const lecturerDashboard = useQuery(
+    api.lecturers.lecturerDashboard,
+    me?.role === "lecturer" && activeUniversityId ? { universityId: activeUniversityId } : "skip",
+  );
+  const myLecturerCourses = useQuery(
+    api.lecturers.listMyCourses,
+    me?.role === "lecturer" ? {} : "skip",
+  );
+  const courseStudents = useQuery(
+    api.lecturers.listCourseStudents,
+    me?.role === "lecturer" && gradingCourseId ? { courseId: gradingCourseId } : "skip",
+  );
+  const courseResults = useQuery(
+    api.lecturers.listCourseResults,
+    gradingCourseId
+      ? { courseId: gradingCourseId, academicYear: gradingAcademicYear, semester: gradingSemester }
+      : "skip",
+  );
+  const upsertCourseResult = useMutation(api.lecturers.upsertCourseResult);
+  const submitCourseResults = useMutation(api.lecturers.submitCourseResults);
+  const reviewCourseResult = useMutation(api.lecturers.reviewCourseResult);
+  const pendingResults = useQuery(
+    api.lecturers.listCourseResults,
+    (me?.role === "super_admin" || me?.role === "university_admin") && activeUniversityId && gradingCourseId
+      ? { courseId: gradingCourseId, academicYear: gradingAcademicYear, semester: gradingSemester }
+      : "skip",
+  );
   const getBranding = useQuery(api.tenants.getBranding, activeUniversityId ? { universityId: activeUniversityId } : "skip");
   const updateBranding = useMutation(api.tenants.updateBranding);
   const updateAllowedEmailDomains = useMutation(api.tenants.updateAllowedEmailDomains);
@@ -466,7 +536,7 @@ function DashboardContent() {
 
   const roleTimetable = useQuery(
     api.schedules.getRoleTimetable,
-    (me?.role === "student" || me?.role === "invigilator") && activeUniversityId
+    (me?.role === "student" || me?.role === "invigilator" || me?.role === "lecturer") && activeUniversityId
       ? { universityId: activeUniversityId }
       : "skip",
   );
@@ -1181,6 +1251,129 @@ function DashboardContent() {
     }
   }
 
+  async function handleCreateLecturer() {
+    if (!activeUniversityId || !lecturerExternalId || !lecturerFullName || !lecturerEmail) {
+      toast.error("Staff ID, full name, email, and external ID are required");
+      return;
+    }
+
+    try {
+      await createUser({
+        universityId: activeUniversityId,
+        role: "lecturer",
+        externalId: lecturerExternalId,
+        fullName: lecturerFullName,
+        email: lecturerEmail,
+        phone: lecturerPhone || undefined,
+        staffId: lecturerStaffId || lecturerExternalId,
+        department: lecturerDepartment || undefined,
+        title: lecturerTitle || undefined,
+      });
+      setLecturerExternalId("");
+      setLecturerStaffId("");
+      setLecturerFullName("");
+      setLecturerEmail("");
+      setLecturerPhone("");
+      setLecturerDepartment("");
+      setLecturerTitle("");
+      toast.success("Lecturer created");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create lecturer");
+    }
+  }
+
+  async function handleAssignLecturerToCourse() {
+    if (!activeUniversityId || !assignLecturerId || !assignCourseId) {
+      toast.error("Lecturer and course are required");
+      return;
+    }
+
+    try {
+      await assignLecturerToCourse({
+        universityId: activeUniversityId,
+        lecturerId: assignLecturerId,
+        courseId: assignCourseId,
+        academicYear: assignAcademicYear,
+        semester: assignSemester,
+        role: assignRole,
+      });
+      toast.success("Lecturer assigned to course");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to assign lecturer");
+    }
+  }
+
+  async function handleRemoveLecturerAssignment(assignmentId: Id<"courseLecturers">) {
+    try {
+      await removeLecturerAssignment({ assignmentId });
+      toast.success("Assignment removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove assignment");
+    }
+  }
+
+  async function handleSaveResult(studentDocId: Id<"students">) {
+    if (!gradingCourseId) {
+      toast.error("Select a course first");
+      return;
+    }
+    const raw = gradingScores[studentDocId];
+    if (raw === undefined || raw === "") {
+      toast.error("Enter a score for this student");
+      return;
+    }
+    const score = Number(raw);
+    if (Number.isNaN(score)) {
+      toast.error("Score must be a number");
+      return;
+    }
+
+    try {
+      await upsertCourseResult({
+        courseId: gradingCourseId,
+        studentId: studentDocId,
+        examScheduleId: gradingExamScheduleId || undefined,
+        academicYear: gradingAcademicYear,
+        semester: gradingSemester,
+        score,
+        maxScore: gradingMaxScore,
+        remarks: gradingRemarks || undefined,
+      });
+      toast.success("Result saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save result");
+    }
+  }
+
+  async function handleSubmitResults() {
+    if (selectedResults.length === 0) {
+      toast.error("Select at least one result to submit");
+      return;
+    }
+    try {
+      await submitCourseResults({ resultIds: selectedResults });
+      setSelectedResults([]);
+      toast.success("Results submitted for review");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit results");
+    }
+  }
+
+  async function handleReviewResult(decision: "approved" | "rejected") {
+    if (!reviewResultId) {
+      toast.error("Select a result to review");
+      return;
+    }
+    try {
+      await reviewCourseResult({ resultId: reviewResultId, decision, note: reviewNote || undefined });
+      setReviewResultId("");
+      setReviewNote("");
+      toast.success(`Result ${decision}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to review result");
+    }
+  }
+
   function handleDownloadTimetablePdf() {
     if (!timetableReport?.length) {
       toast.error("No timetable data available");
@@ -1551,6 +1744,12 @@ function DashboardContent() {
             {me.role === "super_admin" || me.role === "university_admin" || me.role === "invigilator" ? (
               <TabsTrigger value="verification">Verification</TabsTrigger>
             ) : null}
+            {me.role === "lecturer" ? (
+              <TabsTrigger value="grading">Grading</TabsTrigger>
+            ) : null}
+            {me.role === "super_admin" || me.role === "university_admin" ? (
+              <TabsTrigger value="results-review">Results Review</TabsTrigger>
+            ) : null}
             {me.role === "super_admin" || me.role === "university_admin" || me.role === "finance" ? (
               <TabsTrigger value="reports">Reports</TabsTrigger>
             ) : null}
@@ -1559,6 +1758,9 @@ function DashboardContent() {
             ) : null}
             {me.role === "super_admin" || me.role === "university_admin" ? (
               <TabsTrigger value="users">Users</TabsTrigger>
+            ) : null}
+            {me.role === "super_admin" || me.role === "university_admin" ? (
+              <TabsTrigger value="lecturers">Lecturers</TabsTrigger>
             ) : null}
             {me.role === "super_admin" || me.role === "university_admin" ? (
               <TabsTrigger value="students">Students</TabsTrigger>
@@ -2000,6 +2202,270 @@ function DashboardContent() {
         </TabsContent>
         ) : null}
 
+        {/* ── Grading Tab (Lecturer) ── */}
+        {me.role === "lecturer" ? (
+          <TabsContent value="grading" className="space-y-4 pt-4">
+            <section className="grid gap-3 sm:grid-cols-4">
+              <MiniStat title="My Courses" value={lecturerDashboard?.coursesCount ?? 0} />
+              <MiniStat title="Draft Results" value={lecturerDashboard?.resultCounts.draft ?? 0} />
+              <MiniStat title="Submitted" value={lecturerDashboard?.resultCounts.submitted ?? 0} />
+              <MiniStat title="Approved" value={lecturerDashboard?.resultCounts.approved ?? 0} />
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+              <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-semibold">Course Results</h2>
+                  <Badge variant="secondary">{courseResults?.length ?? 0} results</Badge>
+                </div>
+                <Separator className="mb-3" />
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <Select value={gradingCourseId || undefined} onValueChange={(value) => setGradingCourseId(value as Id<"courses">)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select course" /></SelectTrigger>
+                    <SelectContent>
+                      {(myLecturerCourses ?? []).map((entry: any) => (
+                        <SelectItem key={entry.courseId} value={entry.courseId}>
+                          {entry.course?.code} · {entry.course?.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input value={gradingAcademicYear} onChange={(e) => setGradingAcademicYear(e.target.value)} placeholder="Academic year" className="h-8 text-xs" />
+                  <Input type="number" value={gradingSemester} onChange={(e) => setGradingSemester(Number(e.target.value || 1))} placeholder="Semester" className="h-8 text-xs" />
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <Select value={gradingExamScheduleId || "none"} onValueChange={(value) => setGradingExamScheduleId(value === "none" ? "" : (value as Id<"examSchedules">))}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Exam (optional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No specific exam</SelectItem>
+                      {(lecturerDashboard?.upcomingExams ?? []).map((row: any) => (
+                        <SelectItem key={row.schedule._id} value={row.schedule._id}>
+                          {row.schedule.examDate} · {row.course?.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" value={gradingMaxScore} onChange={(e) => setGradingMaxScore(Number(e.target.value || 100))} placeholder="Max score" className="h-8 text-xs" />
+                  <Input value={gradingRemarks} onChange={(e) => setGradingRemarks(e.target.value)} placeholder="Default remarks (optional)" className="h-8 text-xs" />
+                </div>
+                <Separator className="my-3" />
+                {gradingCourseId ? (
+                  <ScrollArea className="h-96">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student</TableHead>
+                          <TableHead>Index</TableHead>
+                          <TableHead className="w-24">Score</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="w-24"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(courseStudents ?? []).map((entry: any) => {
+                          const existing = entry.existingResult;
+                          return (
+                            <TableRow key={entry.student._id}>
+                              <TableCell className="text-xs">{entry.student.fullName}</TableCell>
+                              <TableCell className="font-mono text-xs">{entry.student.indexNumber}</TableCell>
+                              <TableCell>
+                                <Input
+                                  className="h-7 w-20 text-xs"
+                                  type="number"
+                                  value={gradingScores[entry.student._id] ?? (existing ? String(existing.score) : "")}
+                                  onChange={(e) => setGradingScores((prev) => ({ ...prev, [entry.student._id]: e.target.value }))}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {existing ? (
+                                  <Badge variant={existing.status === "approved" ? "default" : existing.status === "rejected" ? "destructive" : "secondary"}>
+                                    {existing.status}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground">No entry</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={existing?.status === "approved"} onClick={() => handleSaveResult(entry.student._id)}>
+                                  {existing ? "Update" : "Save"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {(courseStudents ?? []).length === 0 ? (
+                          <TableRow><TableCell colSpan={5} className="text-xs text-muted-foreground">No eligible students found for this course.</TableCell></TableRow>
+                        ) : null}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Select one of your courses to start grading.</p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-md border bg-card p-4 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    <ClipboardCheck className="size-4 text-primary" />
+                    <h2 className="text-sm font-semibold">Submit for Review</h2>
+                  </div>
+                  <Separator className="mb-3" />
+                  <ScrollArea className="h-48">
+                    <div className="space-y-2">
+                      {(courseResults ?? []).filter((row: any) => row.status === "draft" || row.status === "rejected").map((row: any) => (
+                        <label key={row._id} className="flex items-start gap-2 rounded-md border bg-background/60 p-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={selectedResults.includes(row._id)}
+                            onChange={(e) => {
+                              setSelectedResults((prev) => e.target.checked
+                                ? [...prev, row._id]
+                                : prev.filter((id) => id !== row._id));
+                            }}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{row.student?.fullName ?? "Unknown"}</p>
+                            <p className="text-muted-foreground">{row.score}/{row.maxScore} · {row.grade}</p>
+                            {row.reviewerNote ? <p className="text-[10px] text-destructive">Note: {row.reviewerNote}</p> : null}
+                          </div>
+                        </label>
+                      ))}
+                      {(courseResults ?? []).filter((row: any) => row.status === "draft" || row.status === "rejected").length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No draft results ready for submission.</p>
+                      ) : null}
+                    </div>
+                  </ScrollArea>
+                  <Button className="mt-2 w-full" onClick={handleSubmitResults} disabled={selectedResults.length === 0}>
+                    Submit {selectedResults.length > 0 ? `(${selectedResults.length})` : ""} for review
+                  </Button>
+                </div>
+
+                <div className="rounded-md border bg-card p-4 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    <FileText className="size-4 text-primary" />
+                    <h2 className="text-sm font-semibold">Submission Status</h2>
+                  </div>
+                  <Separator className="mb-3" />
+                  <ScrollArea className="h-40">
+                    <div className="space-y-1 text-xs">
+                      {(courseResults ?? []).slice(0, 20).map((row: any) => (
+                        <div key={row._id} className="flex items-center justify-between rounded-md border bg-background/60 p-2">
+                          <div>
+                            <p className="font-medium">{row.student?.fullName ?? "Unknown"}</p>
+                            <p className="text-muted-foreground">{row.score}/{row.maxScore} · Grade {row.grade}</p>
+                          </div>
+                          <Badge variant={row.status === "approved" ? "default" : row.status === "rejected" ? "destructive" : row.status === "submitted" ? "secondary" : "outline"}>
+                            {row.status}
+                          </Badge>
+                        </div>
+                      ))}
+                      {(courseResults?.length ?? 0) === 0 ? <p className="text-xs text-muted-foreground">No results recorded yet.</p> : null}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+        ) : null}
+
+        {/* ── Results Review Tab (Admin) ── */}
+        {(me.role === "super_admin" || me.role === "university_admin") ? (
+          <TabsContent value="results-review" className="space-y-4 pt-4">
+            <section className="rounded-md border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Approve or Reject Submitted Results</h2>
+                <div className="flex items-center gap-2">
+                  <Select value={gradingCourseId || undefined} onValueChange={(value) => setGradingCourseId(value as Id<"courses">)}>
+                    <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue placeholder="Select course" /></SelectTrigger>
+                    <SelectContent>
+                      {(courses ?? []).map((course) => (
+                        <SelectItem key={course._id} value={course._id}>{course.code} · {course.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input value={gradingAcademicYear} onChange={(e) => setGradingAcademicYear(e.target.value)} placeholder="Academic year" className="h-8 w-[110px] text-xs" />
+                  <Input type="number" value={gradingSemester} onChange={(e) => setGradingSemester(Number(e.target.value || 1))} placeholder="Sem" className="h-8 w-[70px] text-xs" />
+                </div>
+              </div>
+              <Separator className="mb-3" />
+              {gradingCourseId ? (
+                <ScrollArea className="h-80">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Lecturer</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Grade</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(pendingResults ?? []).map((row: any) => (
+                        <TableRow key={row._id}>
+                          <TableCell className="text-xs">{row.student?.fullName ?? "Unknown"}</TableCell>
+                          <TableCell className="text-xs">{row.lecturer?.fullName ?? "Unknown"}</TableCell>
+                          <TableCell className="text-xs">{row.score}/{row.maxScore}</TableCell>
+                          <TableCell className="text-xs">{row.grade ?? "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant={row.status === "approved" ? "default" : row.status === "rejected" ? "destructive" : row.status === "submitted" ? "secondary" : "outline"}>
+                              {row.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-[11px] text-muted-foreground">
+                            {row.submittedAt ? formatDateTime(row.submittedAt) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {row.status === "submitted" ? (
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setReviewResultId(row._id); handleReviewResult("approved"); }}>
+                                  Approve
+                                </Button>
+                                <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => { setReviewResultId(row._id); handleReviewResult("rejected"); }}>
+                                  Reject
+                                </Button>
+                              </div>
+                            ) : row.reviewerNote ? (
+                              <span className="text-[10px] text-muted-foreground">{row.reviewerNote}</span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(pendingResults?.length ?? 0) === 0 ? (
+                        <TableRow><TableCell colSpan={7} className="text-xs text-muted-foreground">No results found for this course/term.</TableCell></TableRow>
+                      ) : null}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              ) : (
+                <p className="grid h-32 place-items-center text-xs text-muted-foreground">Select a course to view submitted results.</p>
+              )}
+            </section>
+
+            {reviewResultId ? (
+              <section className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  <MessageSquare className="size-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Add Review Note</h2>
+                </div>
+                <Separator className="mb-3" />
+                <Textarea value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="Note shown to the lecturer (used when rejecting)" rows={2} />
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" onClick={() => handleReviewResult("approved")}>Approve with note</Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleReviewResult("rejected")}>Reject with note</Button>
+                  <Button size="sm" variant="outline" onClick={() => { setReviewResultId(""); setReviewNote(""); }}>Cancel</Button>
+                </div>
+              </section>
+            ) : null}
+          </TabsContent>
+        ) : null}
+
           {(me.role === "super_admin" || me.role === "university_admin" || me.role === "finance") ? (
           <TabsContent value="reports" className="space-y-4 pt-4">
             <section className="grid gap-4 lg:grid-cols-2">
@@ -2152,6 +2618,7 @@ function DashboardContent() {
                       <SelectItem value="">All roles</SelectItem>
                       <SelectItem value="super_admin">Super Admin</SelectItem>
                       <SelectItem value="university_admin">Uni Admin</SelectItem>
+                      <SelectItem value="lecturer">Lecturer</SelectItem>
                       <SelectItem value="student">Student</SelectItem>
                       <SelectItem value="invigilator">Invigilator</SelectItem>
                       <SelectItem value="finance">Finance</SelectItem>
@@ -2241,6 +2708,7 @@ function DashboardContent() {
                       <SelectContent>
                         {me.role === "super_admin" ? <SelectItem value="super_admin">Super Admin</SelectItem> : null}
                         <SelectItem value="university_admin">University Admin</SelectItem>
+                        <SelectItem value="lecturer">Lecturer</SelectItem>
                         <SelectItem value="student">Student</SelectItem>
                         <SelectItem value="invigilator">Invigilator</SelectItem>
                         <SelectItem value="finance">Finance</SelectItem>
@@ -2265,11 +2733,12 @@ function DashboardContent() {
                     <Select value={broadcastScope} onValueChange={(value) => setBroadcastScope(value as typeof broadcastScope)}>
                       <SelectTrigger>
                         <SelectValue>
-                          {broadcastScope === "all" ? "All users" : broadcastScope === "student" ? "Students" : broadcastScope === "invigilator" ? "Invigilators" : broadcastScope === "finance" ? "Finance" : "Admins"}
+                          {broadcastScope === "all" ? "All users" : broadcastScope === "lecturer" ? "Lecturers" : broadcastScope === "student" ? "Students" : broadcastScope === "invigilator" ? "Invigilators" : broadcastScope === "finance" ? "Finance" : "Admins"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All users</SelectItem>
+                        <SelectItem value="lecturer">Lecturers</SelectItem>
                         <SelectItem value="student">Students</SelectItem>
                         <SelectItem value="invigilator">Invigilators</SelectItem>
                         <SelectItem value="finance">Finance</SelectItem>
@@ -2291,6 +2760,163 @@ function DashboardContent() {
                 </div>
               </div>
             </div>
+          </section>
+        </TabsContent>
+        ) : null}
+
+        {/* ── Lecturer Management Tab ── */}
+          {(me.role === "super_admin" || me.role === "university_admin") ? (
+          <TabsContent value="lecturers" className="space-y-4 pt-4">
+          <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+             <div className="rounded-md border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold">Lecturer Directory</h2>
+                <Badge variant="secondary">{listLecturerProfiles?.length ?? 0} lecturers</Badge>
+              </div>
+              <Separator className="mb-3" />
+              <ScrollArea className="h-72">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Staff ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(listLecturerProfiles ?? []).map((lecturer: { _id: string; staffId: string; fullName: string; title?: string; email?: string; department?: string; isActive: boolean }) => (
+                      <TableRow key={lecturer._id}>
+                        <TableCell className="font-mono text-xs">{lecturer.staffId}</TableCell>
+                        <TableCell className="text-xs">{lecturer.fullName}</TableCell>
+                        <TableCell className="text-xs">{lecturer.title ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{lecturer.department ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{lecturer.email ?? "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={lecturer.isActive ? "default" : "secondary"}>
+                            {lecturer.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(listLecturerProfiles?.length ?? 0) === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-xs text-muted-foreground">No lecturers registered yet.</TableCell></TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
+
+            <div className="space-y-4">
+               <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  <GraduationCap className="size-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Add Lecturer</h2>
+                </div>
+                <Separator className="mb-3" />
+                <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input value={lecturerExternalId} onChange={(e) => setLecturerExternalId(e.target.value)} placeholder="Clerk user ID (externalId)" />
+                    <Input value={lecturerStaffId} onChange={(e) => setLecturerStaffId(e.target.value)} placeholder="Staff ID" />
+                  </div>
+                  <Input value={lecturerFullName} onChange={(e) => setLecturerFullName(e.target.value)} placeholder="Full name" />
+                  <Input value={lecturerEmail} onChange={(e) => setLecturerEmail(e.target.value)} placeholder="Email" />
+                  <Input value={lecturerPhone} onChange={(e) => setLecturerPhone(e.target.value)} placeholder="Phone (optional)" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input value={lecturerTitle} onChange={(e) => setLecturerTitle(e.target.value)} placeholder="Title (Dr, Prof, ...)" />
+                    <Input value={lecturerDepartment} onChange={(e) => setLecturerDepartment(e.target.value)} placeholder="Department" />
+                  </div>
+                  <Button className="w-full" onClick={handleCreateLecturer} disabled={!activeUniversityId || !lecturerExternalId || !lecturerFullName || !lecturerEmail}>
+                    <UserPlus className="mr-1 size-3.5" /> Create lecturer
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    The external ID must match the Clerk user ID so the lecturer can sign in and reach this profile.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  <BookOpen className="size-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Assign Lecturer to Course</h2>
+                </div>
+                <Separator className="mb-3" />
+                <div className="grid gap-2">
+                  <Select value={assignLecturerId || undefined} onValueChange={(value) => setAssignLecturerId(value as Id<"lecturers">)}>
+                    <SelectTrigger><SelectValue placeholder="Lecturer" /></SelectTrigger>
+                    <SelectContent>
+                    {(listLecturerProfiles ?? []).map((lecturer: { _id: string; staffId: string; fullName: string; title?: string; email?: string; isActive: boolean }) => (
+                        <SelectItem key={lecturer._id} value={lecturer._id}>{lecturer.fullName} ({lecturer.staffId})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={assignCourseId || undefined} onValueChange={(value) => setAssignCourseId(value as Id<"courses">)}>
+                    <SelectTrigger><SelectValue placeholder="Course" /></SelectTrigger>
+                    <SelectContent>
+                      {(courses ?? []).map((course) => (
+                        <SelectItem key={course._id} value={course._id}>{course.code} · {course.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input value={assignAcademicYear} onChange={(e) => setAssignAcademicYear(e.target.value)} placeholder="Academic year" />
+                    <Input type="number" value={assignSemester} onChange={(e) => setAssignSemester(Number(e.target.value || 1))} placeholder="Semester" />
+                  </div>
+                  <Select value={assignRole} onValueChange={(value) => setAssignRole(value as "primary" | "co_lecturer" | "assistant")}>
+                    <SelectTrigger><SelectValue>{assignRole === "primary" ? "Primary" : assignRole === "co_lecturer" ? "Co-lecturer" : "Assistant"}</SelectValue></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="primary">Primary</SelectItem>
+                      <SelectItem value="co_lecturer">Co-lecturer</SelectItem>
+                      <SelectItem value="assistant">Assistant</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button className="w-full" onClick={handleAssignLecturerToCourse} disabled={!assignLecturerId || !assignCourseId}>
+                    Assign lecturer
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-md border bg-card p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Course Assignments</h2>
+              <Badge variant="secondary">{listCourseAssignments?.length ?? 0} assignments</Badge>
+            </div>
+            <Separator className="mb-3" />
+            <ScrollArea className="h-60">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lecturer</TableHead>
+                    <TableHead>Course</TableHead>
+                    <TableHead>Term</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(listCourseAssignments ?? []).map((assignment: any) => (
+                    <TableRow key={assignment._id}>
+                      <TableCell className="text-xs">{assignment.lecturer?.fullName ?? "Unknown"}</TableCell>
+                      <TableCell className="text-xs">{assignment.course?.code} · {assignment.course?.name}</TableCell>
+                      <TableCell className="text-xs">{assignment.academicYear} · Sem {assignment.semester}</TableCell>
+                      <TableCell className="text-xs">{assignment.role}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" className="h-7 text-xs text-destructive" onClick={() => handleRemoveLecturerAssignment(assignment._id)}>
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(listCourseAssignments?.length ?? 0) === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-xs text-muted-foreground">No course assignments yet.</TableCell></TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </ScrollArea>
           </section>
         </TabsContent>
         ) : null}
@@ -3114,11 +3740,11 @@ function DashboardContent() {
           ) : null}
       </Tabs>
 
-      {(me.role === "super_admin" || me.role === "university_admin" || me.role === "student" || me.role === "invigilator") ? (
+      {(me.role === "super_admin" || me.role === "university_admin" || me.role === "student" || me.role === "invigilator" || me.role === "lecturer") ? (
       <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
         <div className="rounded-md border bg-background/60 p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">{me.role === "student" || me.role === "invigilator" ? "My Complaints" : "Complaints Queue"}</h2>
+            <h2 className="text-sm font-semibold">{me.role === "student" || me.role === "invigilator" || me.role === "lecturer" ? "My Complaints" : "Complaints Queue"}</h2>
             <Badge>{complaints?.length ?? 0}</Badge>
           </div>
           <Separator className="mb-3" />
@@ -3140,7 +3766,7 @@ function DashboardContent() {
           </ScrollArea>
         </div>
 
-        {me.role === "student" || me.role === "invigilator" ? (
+        {me.role === "student" || me.role === "invigilator" || me.role === "lecturer" ? (
            <div className="space-y-3 rounded-md border bg-card p-4 shadow-sm">
             <h2 className="text-sm font-semibold">Submit Complaint</h2>
             <Separator />
@@ -3311,6 +3937,7 @@ function RolePanels({
   invigilatorDashboard,
   financeDashboard,
   superAdminDashboard,
+  lecturerDashboard,
 }: {
   role: string;
   adminDashboard: ReturnType<typeof useQuery<typeof api.dashboard.adminDashboard>>;
@@ -3318,6 +3945,8 @@ function RolePanels({
   invigilatorDashboard: ReturnType<typeof useQuery<typeof api.dashboard.invigilatorDashboard>>;
   financeDashboard: ReturnType<typeof useQuery<typeof api.dashboard.financeDashboard>>;
   superAdminDashboard: ReturnType<typeof useQuery<typeof api.dashboard.superAdminDashboard>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lecturerDashboard?: any;
 }) {
   if (role === "super_admin" && superAdminDashboard) {
     return (
@@ -3392,6 +4021,24 @@ function RolePanels({
           icon={LayoutGrid}
         />
         <QuickMetric title="History" value={invigilatorDashboard.history.length} icon={FileText} />
+      </div>
+    );
+  }
+
+  if (role === "lecturer") {
+    return (
+      <div className="grid gap-2 sm:grid-cols-3">
+        <QuickMetric title="My Courses" value={lecturerDashboard?.coursesCount ?? 0} icon={BookOpen} />
+        <QuickMetric
+          title="Upcoming Exams"
+          value={lecturerDashboard?.upcomingExams.length ?? 0}
+          icon={CalendarClock}
+        />
+        <QuickMetric
+          title="Pending Results"
+          value={(lecturerDashboard?.resultCounts.draft ?? 0) + (lecturerDashboard?.resultCounts.submitted ?? 0)}
+          icon={ClipboardCheck}
+        />
       </div>
     );
   }

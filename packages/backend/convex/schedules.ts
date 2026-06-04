@@ -95,6 +95,21 @@ export const getRoleTimetable = query({
       }
 
       visibleSchedules = schedules.filter((schedule) => schedule.invigilatorId === profile._id);
+    } else if (session.user.role === "lecturer") {
+      const profile = (await ctx.db.query("lecturers").collect()).find(
+        (candidate) => candidate.userId === session.user._id,
+      );
+
+      if (!profile) {
+        return [];
+      }
+
+      const courseLecturerRows = await ctx.db
+        .query("courseLecturers")
+        .withIndex("by_lecturer", (q) => q.eq("lecturerId", profile._id))
+        .collect();
+      const assignedCourseIds = new Set(courseLecturerRows.map((row) => row.courseId));
+      visibleSchedules = schedules.filter((schedule) => assignedCourseIds.has(schedule.courseId));
     }
 
     return await Promise.all(

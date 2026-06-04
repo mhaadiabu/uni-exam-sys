@@ -84,6 +84,22 @@ async function attachUserToRoleProfile(
         updatedAt: Date.now(),
       });
     }
+    return;
+  }
+
+  if (role === "lecturer") {
+    const existingLecturer = (await ctx.db
+      .query("lecturers")
+      .withIndex("by_university", (q) => q.eq("universityId", universityId))
+      .collect())
+      .find((lecturer) => !lecturer.userId && lecturer.email?.toLowerCase() === email.toLowerCase());
+
+    if (existingLecturer) {
+      await ctx.db.patch(existingLecturer._id, {
+        userId,
+        updatedAt: Date.now(),
+      });
+    }
   }
 }
 
@@ -115,6 +131,7 @@ async function resolveUniversityFromEmail(
 const roleValidator = v.union(
   v.literal("super_admin"),
   v.literal("university_admin"),
+  v.literal("lecturer"),
   v.literal("student"),
   v.literal("invigilator"),
   v.literal("finance"),

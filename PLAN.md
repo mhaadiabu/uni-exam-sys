@@ -22,6 +22,7 @@ The system supports multiple universities and provides role-based access for:
 - University Admin / Examination Council
 - Students
 - Invigilators
+- Lecturers (course-results management: assigned-course grading, draft → submit → admin review)
 - Finance Office
 
 Core capabilities include:

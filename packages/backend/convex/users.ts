@@ -7,6 +7,7 @@ import { getScopedUniversityId, requireRole, requireSessionUser } from "./lib/au
 const roleValidator = v.union(
   v.literal("super_admin"),
   v.literal("university_admin"),
+  v.literal("lecturer"),
   v.literal("student"),
   v.literal("invigilator"),
   v.literal("finance"),
@@ -47,6 +48,8 @@ export const createUser = mutation({
     staffId: v.optional(v.string()),
     ratePerSession: v.optional(v.number()),
     attendanceBonus: v.optional(v.number()),
+    department: v.optional(v.string()),
+    title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
@@ -114,6 +117,26 @@ export const createUser = mutation({
         employeeId: args.employeeId ?? args.externalId,
         fullName: args.fullName,
         email: args.email,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    if (args.role === "lecturer") {
+      if (!scopedUniversityId) {
+        throw new Error("Lecturer must belong to a university");
+      }
+
+      await ctx.db.insert("lecturers", {
+        universityId: scopedUniversityId,
+        userId,
+        staffId: args.staffId ?? args.externalId,
+        fullName: args.fullName,
+        email: args.email,
+        phone: args.phone,
+        department: args.department,
+        title: args.title,
+        isActive: true,
         createdAt: now,
         updatedAt: now,
       });
@@ -204,6 +227,8 @@ export const updateUserRole = mutation({
     ratePerSession: v.optional(v.number()),
     attendanceBonus: v.optional(v.number()),
     employeeId: v.optional(v.string()),
+    department: v.optional(v.string()),
+    title: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
@@ -305,6 +330,37 @@ export const updateUserRole = mutation({
       }
     }
 
+    // Create linked records when promoting to lecturer
+    if (args.newRole === "lecturer" && previousRole !== "lecturer") {
+      const universityId = target.universityId;
+      if (!universityId) {
+        throw new Error("Lecturer must belong to a university");
+      }
+
+      const existingLecturer = await ctx.db
+        .query("lecturers")
+        .filter((q) => q.eq(q.field("userId"), args.userId))
+        .unique();
+
+      if (!existingLecturer) {
+        await ctx.db.insert("lecturers", {
+          universityId,
+          userId: args.userId,
+          staffId: args.staffId ?? target.externalId,
+          fullName: target.fullName,
+          email: target.email,
+          phone: target.phone,
+          department: args.department,
+          title: args.title,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else if (!existingLecturer.isActive) {
+        await ctx.db.patch(existingLecturer._id, { isActive: true, updatedAt: now });
+      }
+    }
+
     // Deactivate linked records when demoting away from invigilator
     if (previousRole === "invigilator" && args.newRole !== "invigilator") {
       const existingInvigilator = await ctx.db
@@ -314,6 +370,18 @@ export const updateUserRole = mutation({
 
       if (existingInvigilator) {
         await ctx.db.patch(existingInvigilator._id, { isActive: false, updatedAt: now });
+      }
+    }
+
+    // Deactivate linked records when demoting away from lecturer
+    if (previousRole === "lecturer" && args.newRole !== "lecturer") {
+      const existingLecturer = await ctx.db
+        .query("lecturers")
+        .filter((q) => q.eq(q.field("userId"), args.userId))
+        .unique();
+
+      if (existingLecturer) {
+        await ctx.db.patch(existingLecturer._id, { isActive: false, updatedAt: now });
       }
     }
 

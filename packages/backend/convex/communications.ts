@@ -33,6 +33,7 @@ const complaintStatusValidator = v.union(
 const roleScopeValidator = v.union(
   v.literal("all"),
   v.literal("admin"),
+  v.literal("lecturer"),
   v.literal("student"),
   v.literal("invigilator"),
   v.literal("finance"),
@@ -48,7 +49,7 @@ export const submitComplaint = mutation({
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
-    requireRole(session.user, ["student", "invigilator", "super_admin", "university_admin", "finance"]);
+    requireRole(session.user, ["student", "invigilator", "lecturer", "super_admin", "university_admin", "finance"]);
 
     const scoped = getScopedUniversityId(session.user, args.universityId);
     const now = Date.now();
@@ -102,7 +103,7 @@ export const listComplaints = query({
       .collect();
 
     const roleFiltered =
-      session.user.role === "student" || session.user.role === "invigilator"
+      session.user.role === "student" || session.user.role === "invigilator" || session.user.role === "lecturer"
         ? rows.filter((row) => row.submittedByUserId === session.user._id)
         : rows;
 

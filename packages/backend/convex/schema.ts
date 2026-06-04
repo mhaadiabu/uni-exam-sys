@@ -4,6 +4,7 @@ import { v } from "convex/values";
 const roleValidator = v.union(
   v.literal("super_admin"),
   v.literal("university_admin"),
+  v.literal("lecturer"),
   v.literal("student"),
   v.literal("invigilator"),
   v.literal("finance"),
@@ -65,6 +66,7 @@ const idCardStatusValidator = v.union(
 const notificationScopeValidator = v.union(
   v.literal("all"),
   v.literal("admin"),
+  v.literal("lecturer"),
   v.literal("student"),
   v.literal("invigilator"),
   v.literal("finance"),
@@ -207,6 +209,72 @@ export default defineSchema({
   })
     .index("by_university", ["universityId"])
     .index("by_user", ["userId"]),
+
+  lecturers: defineTable({
+    universityId: v.id("universities"),
+    userId: v.optional(v.id("users")),
+    staffId: v.string(),
+    fullName: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    department: v.optional(v.string()),
+    title: v.optional(v.string()),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_university", ["universityId"])
+    .index("by_university_staff_id", ["universityId", "staffId"])
+    .index("by_user", ["userId"]),
+
+  courseLecturers: defineTable({
+    universityId: v.id("universities"),
+    courseId: v.id("courses"),
+    lecturerId: v.id("lecturers"),
+    academicYear: v.string(),
+    semester: v.number(),
+    role: v.union(
+      v.literal("primary"),
+      v.literal("co_lecturer"),
+      v.literal("assistant"),
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_course", ["courseId"])
+    .index("by_lecturer", ["lecturerId"])
+    .index("by_university", ["universityId"]),
+
+  courseResults: defineTable({
+    universityId: v.id("universities"),
+    courseId: v.id("courses"),
+    studentId: v.id("students"),
+    lecturerId: v.id("lecturers"),
+    examScheduleId: v.optional(v.id("examSchedules")),
+    academicYear: v.string(),
+    semester: v.number(),
+    score: v.number(),
+    maxScore: v.number(),
+    grade: v.optional(v.string()),
+    remarks: v.optional(v.string()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("submitted"),
+      v.literal("approved"),
+      v.literal("rejected"),
+    ),
+    submittedAt: v.optional(v.number()),
+    reviewedAt: v.optional(v.number()),
+    reviewedByUserId: v.optional(v.id("users")),
+    reviewerNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_course", ["courseId"])
+    .index("by_student", ["studentId"])
+    .index("by_lecturer", ["lecturerId"])
+    .index("by_course_student", ["courseId", "studentId"])
+    .index("by_university", ["universityId"])
+    .index("by_status", ["status"]),
 
   rooms: defineTable({
     universityId: v.id("universities"),

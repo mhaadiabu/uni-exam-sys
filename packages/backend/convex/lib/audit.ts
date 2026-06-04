@@ -6,6 +6,7 @@ type AuditActor = {
   actorRole?:
     | "super_admin"
     | "university_admin"
+    | "lecturer"
     | "student"
     | "invigilator"
     | "finance";
