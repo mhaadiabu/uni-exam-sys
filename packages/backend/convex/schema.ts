@@ -79,11 +79,13 @@ export default defineSchema({
     code: v.string(),
     allowedEmailDomains: v.array(v.string()),
     isActive: v.boolean(),
+    isPlatform: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_code", ["code"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_platform", ["isPlatform"]),
 
   brandingSettings: defineTable({
     universityId: v.id("universities"),
@@ -97,7 +99,7 @@ export default defineSchema({
 
   users: defineTable({
     externalId: v.string(),
-    universityId: v.optional(v.id("universities")),
+    universityId: v.id("universities"),
     role: roleValidator,
     fullName: v.string(),
     email: v.string(),
@@ -109,6 +111,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_external_id", ["externalId"])
+    .index("by_email", ["email"])
     .index("by_university_role", ["universityId", "role"])
     .index("by_university", ["universityId"]),
 

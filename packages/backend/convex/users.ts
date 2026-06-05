@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import { writeAuditLog } from "./lib/audit";
 import { getScopedUniversityId, requireRole, requireSessionUser } from "./lib/auth";
+import { getOrCreatePlatformUniversity } from "./lib/platform";
 
 const roleValidator = v.union(
   v.literal("super_admin"),
@@ -60,7 +61,9 @@ export const createUser = mutation({
     }
 
     const scopedUniversityId =
-      args.role === "super_admin" ? undefined : getScopedUniversityId(session.user, args.universityId);
+      args.role === "super_admin"
+        ? (await getOrCreatePlatformUniversity(ctx))._id
+        : getScopedUniversityId(session.user, args.universityId);
 
     const existing = await ctx.db
       .query("users")
@@ -266,9 +269,19 @@ export const updateUserRole = mutation({
       updatedAt: now,
     };
 
-    // If promoting to super_admin, remove university scope
+    // If promoting to super_admin, attach to the Platform university
     if (args.newRole === "super_admin") {
-      updateFields.universityId = undefined;
+      const platform = await getOrCreatePlatformUniversity(ctx);
+      updateFields.universityId = platform._id;
+    }
+
+    // Demoting a super_admin to a tenant-scoped role requires explicit handling
+    // because the Platform university is not a real tenant. Block it here; a
+    // dedicated mutation can handle the demotion flow in the future.
+    if (previousRole === "super_admin" && args.newRole !== "super_admin") {
+      throw new Error(
+        "Demoting a super admin is not supported. Create a new user with the desired role instead.",
+      );
     }
 
     await ctx.db.patch(args.userId, updateFields);

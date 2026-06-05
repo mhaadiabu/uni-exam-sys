@@ -1,7 +1,7 @@
 "use client";
 
 import { SignInButton, SignUpButton, useAuth, useClerk } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   ArrowRight,
   BookOpen,
@@ -16,7 +16,7 @@ import {
   Users2,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
@@ -125,7 +125,8 @@ function LandingPage() {
 /* -------------------------------------------------------------------------- */
 
 function AuthenticatedHome() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded: isAuthLoaded } = useAuth();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   const clerk = useClerk();
   const healthCheck = useQuery(api.healthCheck.get);
   const me = useQuery(api.bootstrap.me);
@@ -154,6 +155,47 @@ function AuthenticatedHome() {
     "BSc Information Technology",
   );
   const [programDuration, setProgramDuration] = useState(8);
+
+  // Auto-sync: if signed in but no user record (e.g. seeded superadmin
+  // whose externalId is a placeholder), call syncCurrentUser to link
+  // the Clerk identity via email.
+  const syncCurrentUser = useMutation(api.bootstrap.syncCurrentUser);
+  const [syncState, setSyncState] = useState<
+    "idle" | "syncing" | "failed"
+  >("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthLoaded) return;
+    if (!isSignedIn || !isConvexAuthenticated) {
+      syncAttemptedRef.current = false;
+      setSyncState("idle");
+      setSyncError(null);
+      return;
+    }
+    if (me !== null && me !== undefined) {
+      setSyncState("idle");
+      setSyncError(null);
+      return;
+    }
+    if (syncAttemptedRef.current) return;
+    if (syncState === "syncing" || syncState === "failed") return;
+    syncAttemptedRef.current = true;
+    setSyncState("syncing");
+    void (async () => {
+      try {
+        await syncCurrentUser({});
+        setSyncState("idle");
+      } catch (error) {
+        syncAttemptedRef.current = false;
+        setSyncState("failed");
+        const message =
+          error instanceof Error ? error.message : "Failed to sync account";
+        setSyncError(message);
+        toast.error(message);
+      }
+    })();
+  }, [isAuthLoaded, isSignedIn, isConvexAuthenticated, me, syncCurrentUser, syncState]);
 
   const metrics = useMemo(() => {
     const totalSchedules = schedules?.length ?? 0;
@@ -265,22 +307,49 @@ function AuthenticatedHome() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-4 text-sm">
-            {!me && onboardingError ? (
+            {me === undefined ? (
+              <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-4">
+                <p className="font-medium text-xs uppercase tracking-wider flex items-center gap-2">
+                  <span className="size-3 animate-spin rounded-md border-2 border-primary border-t-transparent" />
+                  Loading workspace
+                </p>
+              </div>
+            ) : null}
+            {!me && me !== undefined && syncState === "syncing" ? (
+              <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-4">
+                <p className="font-medium text-primary text-xs uppercase tracking-wider flex items-center gap-2">
+                  <span className="size-3 animate-spin rounded-md border-2 border-primary border-t-transparent" />
+                  Linking your account
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Verifying your identity with the platform...
+                </p>
+              </div>
+            ) : null}
+            {!me && me !== undefined && syncState === "failed" ? (
               <div className="space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-                <p className="font-medium text-destructive flex items-center gap-2"><ShieldAlert className="size-4"/> Access denied</p>
-                <p className="text-xs text-muted-foreground">{onboardingError}</p>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Domain</span>
-                  <span className="font-mono">{onboardingEmailDomain ?? "Unknown"}</span>
+                <p className="font-medium text-destructive flex items-center gap-2"><ShieldAlert className="size-4"/> Account link failed</p>
+                <p className="text-xs text-muted-foreground">{syncError ?? "Unknown error"}</p>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      syncAttemptedRef.current = false;
+                      setSyncState("idle");
+                      setSyncError(null);
+                    }}
+                  >
+                    Try again
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleLogout}
+                  >
+                    Sign out
+                  </Button>
                 </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="w-full mt-2"
-                >
-                  Sign out
-                </Button>
               </div>
             ) : null}
             {!me && matchedUniversity ? (

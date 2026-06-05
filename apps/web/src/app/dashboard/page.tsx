@@ -3,7 +3,7 @@
 import { SignInButton, useClerk } from "@clerk/nextjs";
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
-import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated, useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   BadgeCheck,
@@ -203,6 +203,35 @@ function DashboardContent() {
   const [roleChangeUserId, setRoleChangeUserId] = useState<Id<"users"> | "">("");
   const [roleChangeNewRole, setRoleChangeNewRole] = useState<"super_admin" | "university_admin" | "lecturer" | "student" | "invigilator" | "finance">("student");
   const [userFilterRole, setUserFilterRole] = useState<"" | "super_admin" | "university_admin" | "lecturer" | "student" | "invigilator" | "finance">("");
+
+  // Add user form state
+  const [addUserRole, setAddUserRole] = useState<"" | "super_admin" | "university_admin" | "lecturer" | "invigilator" | "finance">("");
+  const [addUserUniversityId, setAddUserUniversityId] = useState<Id<"universities"> | "">("");
+  const [addUserExternalId, setAddUserExternalId] = useState("");
+  const [addUserFullName, setAddUserFullName] = useState("");
+  const [addUserEmail, setAddUserEmail] = useState("");
+  const [addUserPhone, setAddUserPhone] = useState("");
+  const [addUserStaffId, setAddUserStaffId] = useState("");
+  const [addUserTitle, setAddUserTitle] = useState("");
+  const [addUserDepartment, setAddUserDepartment] = useState("");
+  const [addUserRatePerSession, setAddUserRatePerSession] = useState(0);
+  const [addUserAttendanceBonus, setAddUserAttendanceBonus] = useState(0);
+  const [addUserEmployeeId, setAddUserEmployeeId] = useState("");
+
+  function resetAddUserForm() {
+    setAddUserRole("");
+    setAddUserUniversityId("");
+    setAddUserExternalId("");
+    setAddUserFullName("");
+    setAddUserEmail("");
+    setAddUserPhone("");
+    setAddUserStaffId("");
+    setAddUserTitle("");
+    setAddUserDepartment("");
+    setAddUserRatePerSession(0);
+    setAddUserAttendanceBonus(0);
+    setAddUserEmployeeId("");
+  }
 
   // Lecturer management state
   const [lecturerStaffId, setLecturerStaffId] = useState("");
@@ -935,6 +964,51 @@ function DashboardContent() {
     }
   }
 
+  async function handleAddUser() {
+    if (!addUserRole) {
+      toast.error("Pick a role for the new user");
+      return;
+    }
+
+    if (!addUserExternalId || !addUserFullName || !addUserEmail) {
+      toast.error("Clerk user ID, full name, and email are required");
+      return;
+    }
+
+    const targetUniversityId =
+      addUserRole === "super_admin"
+        ? undefined
+        : me?.role === "super_admin"
+          ? (addUserUniversityId || undefined)
+          : activeUniversityId;
+
+    if (addUserRole !== "super_admin" && !targetUniversityId) {
+      toast.error("Select a university for the new user");
+      return;
+    }
+
+    try {
+      await createUser({
+        universityId: targetUniversityId,
+        role: addUserRole,
+        externalId: addUserExternalId,
+        fullName: addUserFullName,
+        email: addUserEmail,
+        phone: addUserPhone || undefined,
+        staffId: addUserStaffId || undefined,
+        title: addUserRole === "lecturer" ? addUserTitle || undefined : undefined,
+        department: addUserRole === "lecturer" ? addUserDepartment || undefined : undefined,
+        ratePerSession: addUserRole === "invigilator" ? addUserRatePerSession : undefined,
+        attendanceBonus: addUserRole === "invigilator" ? addUserAttendanceBonus : undefined,
+        employeeId: addUserRole === "finance" ? addUserEmployeeId || undefined : undefined,
+      });
+      toast.success(`${roleLabel(addUserRole)} created`);
+      resetAddUserForm();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create user");
+    }
+  }
+
   async function handleCreateStudent() {
     if (!activeUniversityId || !newStudentId || !newStudentIndex || !newStudentName || !newStudentProgramId) {
       toast.error("Student ID, index, name, and program are required");
@@ -1610,6 +1684,95 @@ function DashboardContent() {
       brandingLoaded.current = true;
     }
   }, [getBranding]);
+
+  // Auto-sync: if signed in but no user record (e.g. seeded superadmin
+  // whose externalId is a placeholder), call syncCurrentUser to link
+  // the Clerk identity via email.
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
+  const syncCurrentUser = useMutation(api.bootstrap.syncCurrentUser);
+  const [syncState, setSyncState] = useState<
+    "idle" | "syncing" | "failed"
+  >("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const syncAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!isConvexAuthenticated) {
+      setSyncState("idle");
+      setSyncError(null);
+      return;
+    }
+    if (me !== null && me !== undefined) {
+      setSyncState("idle");
+      setSyncError(null);
+      return;
+    }
+    if (me === undefined) return;
+    if (syncAttemptedRef.current) return;
+    if (syncState === "syncing" || syncState === "failed") return;
+    syncAttemptedRef.current = true;
+    setSyncState("syncing");
+    void (async () => {
+      try {
+        await syncCurrentUser({});
+        setSyncState("idle");
+      } catch (error) {
+        syncAttemptedRef.current = false;
+        setSyncState("failed");
+        const message =
+          error instanceof Error ? error.message : "Failed to sync account";
+        setSyncError(message);
+        toast.error(message);
+      }
+    })();
+  }, [isConvexAuthenticated, me, syncCurrentUser, syncState]);
+
+  if (me === undefined || (!me && syncState === "syncing")) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+        <Alert>
+          <span className="size-4 animate-spin rounded-md border-2 border-primary border-t-transparent" />
+          <AlertTitle>
+            {me === undefined ? "Loading workspace" : "Linking your account"}
+          </AlertTitle>
+          <AlertDescription>
+            {me === undefined
+              ? "Preparing your examination workspace..."
+              : "Verifying your identity with the platform. This usually takes a moment."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (!me && syncState === "failed") {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Account link failed</AlertTitle>
+          <AlertDescription>
+            {syncError ?? "We could not link your account. Please sign out and try again."}
+          </AlertDescription>
+          <div className="flex gap-2 pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                syncAttemptedRef.current = false;
+                setSyncState("idle");
+                setSyncError(null);
+              }}
+            >
+              Try again
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleLogout}>
+              Sign out
+            </Button>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
 
   if (!me) {
     return (
@@ -2675,6 +2838,129 @@ function DashboardContent() {
             </div>
 
             <div className="space-y-4">
+               <div className="rounded-md border bg-card p-4 shadow-sm">
+                <div className="mb-2 flex items-center gap-2">
+                  <UserPlus className="size-4 text-primary" />
+                  <h2 className="text-sm font-semibold">Add User</h2>
+                </div>
+                <Separator className="mb-3" />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Role</Label>
+                    <Select value={addUserRole || undefined} onValueChange={(value) => setAddUserRole(value as typeof addUserRole)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role">
+                          {addUserRole ? roleLabel(addUserRole) : "Select role"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {me.role === "super_admin" ? <SelectItem value="super_admin">Super Admin</SelectItem> : null}
+                        {me.role === "super_admin" ? <SelectItem value="university_admin">University Admin</SelectItem> : null}
+                        <SelectItem value="lecturer">Lecturer</SelectItem>
+                        <SelectItem value="invigilator">Invigilator</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {me.role === "super_admin" && addUserRole && addUserRole !== "super_admin" ? (
+                    <div className="space-y-1">
+                      <Label>University</Label>
+                      <Select value={addUserUniversityId || undefined} onValueChange={(value) => setAddUserUniversityId(value as Id<"universities">)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select university">
+                            {universities?.find(u => u._id === addUserUniversityId)?.name ?? "Select university"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(universities ?? []).map((uni) => (
+                            <SelectItem key={uni._id} value={uni._id}>{uni.name} ({uni.code})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
+
+                  {addUserRole ? (
+                    <>
+                      <div className="space-y-1">
+                        <Label>Clerk user ID (external ID)</Label>
+                        <Input value={addUserExternalId} onChange={(event) => setAddUserExternalId(event.target.value)} placeholder="user_2abc..." />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Full name</Label>
+                        <Input value={addUserFullName} onChange={(event) => setAddUserFullName(event.target.value)} placeholder="Full name" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Email</Label>
+                        <Input type="email" value={addUserEmail} onChange={(event) => setAddUserEmail(event.target.value)} placeholder="user@example.com" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Phone (optional)</Label>
+                        <Input value={addUserPhone} onChange={(event) => setAddUserPhone(event.target.value)} placeholder="+1234..." />
+                      </div>
+
+                      {addUserRole === "lecturer" || addUserRole === "invigilator" ? (
+                        <div className="space-y-1">
+                          <Label>Staff ID</Label>
+                          <Input value={addUserStaffId} onChange={(event) => setAddUserStaffId(event.target.value)} placeholder="Staff ID (optional, defaults to external ID)" />
+                        </div>
+                      ) : null}
+
+                      {addUserRole === "lecturer" ? (
+                        <>
+                          <div className="space-y-1">
+                            <Label>Title (optional)</Label>
+                            <Input value={addUserTitle} onChange={(event) => setAddUserTitle(event.target.value)} placeholder="Dr, Prof, ..." />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Department (optional)</Label>
+                            <Input value={addUserDepartment} onChange={(event) => setAddUserDepartment(event.target.value)} placeholder="Department" />
+                          </div>
+                        </>
+                      ) : null}
+
+                      {addUserRole === "invigilator" ? (
+                        <>
+                          <div className="space-y-1">
+                            <Label>Rate per session</Label>
+                            <Input type="number" value={addUserRatePerSession} onChange={(event) => setAddUserRatePerSession(Number(event.target.value || 0))} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Attendance bonus</Label>
+                            <Input type="number" value={addUserAttendanceBonus} onChange={(event) => setAddUserAttendanceBonus(Number(event.target.value || 0))} />
+                          </div>
+                        </>
+                      ) : null}
+
+                      {addUserRole === "finance" ? (
+                        <div className="space-y-1">
+                          <Label>Employee ID</Label>
+                          <Input value={addUserEmployeeId} onChange={(event) => setAddUserEmployeeId(event.target.value)} placeholder="Employee ID (optional, defaults to external ID)" />
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  <Button
+                    className="w-full"
+                    onClick={handleAddUser}
+                    disabled={
+                      !addUserRole ||
+                      !addUserExternalId ||
+                      !addUserFullName ||
+                      !addUserEmail ||
+                      (addUserRole !== "super_admin" && (me.role === "super_admin" ? !addUserUniversityId : !activeUniversityId))
+                    }
+                  >
+                    <UserPlus className="mr-1 size-3.5" /> Create user
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    The external ID must match the Clerk user ID so the user can sign in and reach this profile. New students should sign up via Clerk directly and will be auto-assigned the student role if their email matches a university domain.
+                  </p>
+                </div>
+              </div>
+
                <div className="rounded-md border bg-card p-4 shadow-sm">
                 <div className="mb-2 flex items-center gap-2">
                   <Shield className="size-4 text-primary" />

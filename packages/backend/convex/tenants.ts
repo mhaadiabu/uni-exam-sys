@@ -8,13 +8,15 @@ import {
   requireSessionUser,
   requireUniversityScope,
 } from "./lib/auth";
+import { isPlatformUniversity } from "./lib/platform";
 
 export const listUniversities = query({
   args: {},
   handler: async (ctx) => {
     const session = await requireSessionUser(ctx);
     if (session.user.role === "super_admin") {
-      return await ctx.db.query("universities").collect();
+      const all = await ctx.db.query("universities").collect();
+      return all.filter((university) => !isPlatformUniversity(university));
     }
 
     if (!session.user.universityId) {
@@ -22,7 +24,10 @@ export const listUniversities = query({
     }
 
     const ownUniversity = await ctx.db.get(session.user.universityId);
-    return ownUniversity ? [ownUniversity] : [];
+    if (!ownUniversity || isPlatformUniversity(ownUniversity)) {
+      return [];
+    }
+    return [ownUniversity];
   },
 });
 

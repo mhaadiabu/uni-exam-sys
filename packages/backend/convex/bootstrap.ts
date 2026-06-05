@@ -5,6 +5,8 @@ import { v } from "convex/values";
 
 import { writeAuditLog } from "./lib/audit";
 import { getScopedUniversityId, requireRole, requireSessionUser } from "./lib/auth";
+import { getOrCreatePlatformUniversity, isPlatformUniversity } from "./lib/platform";
+import { isSeededExternalId } from "./seed";
 
 function normalizeEmailDomain(value: string) {
   return value.trim().toLowerCase().replace(/^@+/, "");
@@ -128,6 +130,59 @@ async function resolveUniversityFromEmail(
   throw new Error("Your email domain is not approved for any university in this system.");
 }
 
+async function adoptSeededSuperAdminByEmail(
+  ctx: MutationCtx,
+  params: {
+    email: string;
+    newExternalId: string;
+    fullName?: string;
+    emailOverride?: string;
+    now: number;
+  },
+): Promise<Doc<"users"> | null> {
+  const normalizedEmail = params.email.trim().toLowerCase();
+  const emailMatch = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+    .unique();
+
+  if (!emailMatch || !isSeededExternalId(emailMatch.externalId) || emailMatch.role !== "super_admin") {
+    return null;
+  }
+
+  const platform = await getOrCreatePlatformUniversity(ctx);
+  const existingUniversity = emailMatch.universityId
+    ? await ctx.db.get(emailMatch.universityId)
+    : null;
+  const needsPlatformLink = !existingUniversity || !isPlatformUniversity(existingUniversity);
+
+  const patch: Partial<Doc<"users">> = {
+    externalId: params.newExternalId,
+    updatedAt: params.now,
+  };
+  if (params.fullName) patch.fullName = params.fullName;
+  if (params.emailOverride) patch.email = params.emailOverride;
+  if (needsPlatformLink) patch.universityId = platform._id;
+
+  await ctx.db.patch(emailMatch._id, patch);
+
+  await writeAuditLog(ctx, {
+    action: needsPlatformLink ? "user.seeded.linked_and_platform_assigned" : "user.seeded.linked",
+    entityType: "users",
+    entityId: emailMatch._id,
+    actorUserId: emailMatch._id,
+    actorRole: "super_admin",
+    universityId: platform._id,
+    context: {
+      previousExternalId: emailMatch.externalId,
+      newExternalId: params.newExternalId,
+      platformUniversityId: platform._id,
+    },
+  });
+
+  return await ctx.db.get(emailMatch._id);
+}
+
 const roleValidator = v.union(
   v.literal("super_admin"),
   v.literal("university_admin"),
@@ -154,10 +209,20 @@ export const syncCurrentUser = mutation({
     const isFirstUser = allUsers.length === 0;
     const resolved = isFirstUser ? null : await resolveUniversityFromEmail(ctx, email);
 
-    const existing = await ctx.db
+    let existing = await ctx.db
       .query("users")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
       .unique();
+
+    if (!existing) {
+      existing = await adoptSeededSuperAdminByEmail(ctx, {
+        email,
+        newExternalId: externalId,
+        fullName: identity.name,
+        emailOverride: identity.email,
+        now,
+      });
+    }
 
     if (existing) {
       if (existing.role !== "super_admin") {
@@ -176,13 +241,20 @@ export const syncCurrentUser = mutation({
         }
       }
 
+      const platformForExisting = await getOrCreatePlatformUniversity(ctx);
+      const existingUniversity = existing.universityId
+        ? await ctx.db.get(existing.universityId)
+        : null;
+      const superAdminNeedsPlatformLink =
+        existing.role === "super_admin" && (!existingUniversity || !isPlatformUniversity(existingUniversity));
+
       const nextUniversityId: Doc<"users">["universityId"] =
         existing.role === "super_admin"
-          ? existing.universityId
+          ? (superAdminNeedsPlatformLink ? platformForExisting._id : existing.universityId!)
           : (existing.universityId ?? resolved?.university._id);
 
-      if (existing.role !== "super_admin" && !nextUniversityId) {
-        throw new Error("A university is required for non-super-admin users");
+      if (!nextUniversityId) {
+        throw new Error("A university is required to update the user");
       }
 
       await ctx.db.patch(existing._id, {
@@ -203,10 +275,17 @@ export const syncCurrentUser = mutation({
     }
 
     const role = allUsers.length === 0 ? "super_admin" : (args.preferredRole ?? "student");
-    const universityId = role === "super_admin" ? undefined : resolved?.university._id;
+    const universityId =
+      role === "super_admin"
+        ? (await getOrCreatePlatformUniversity(ctx))._id
+        : resolved?.university._id;
 
     if (role !== "super_admin" && !universityId) {
       throw new Error("A university is required for non-super-admin users");
+    }
+
+    if (!universityId) {
+      throw new Error("A university is required to create the user");
     }
 
     const userId = await ctx.db.insert("users", {
@@ -257,10 +336,20 @@ export const syncUserFromWebhook = internalMutation({
     const isFirstUser = allUsers.length === 0;
     const resolved = isFirstUser ? null : await resolveUniversityFromEmail(ctx, args.email);
 
-    const existing = await ctx.db
+    let existing = await ctx.db
       .query("users")
       .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
       .unique();
+
+    if (!existing) {
+      existing = await adoptSeededSuperAdminByEmail(ctx, {
+        email: args.email,
+        newExternalId: args.externalId,
+        fullName: args.fullName,
+        emailOverride: args.email,
+        now,
+      });
+    }
 
     if (existing) {
       if (existing.role !== "super_admin") {
@@ -279,13 +368,20 @@ export const syncUserFromWebhook = internalMutation({
         }
       }
 
+      const platformForExisting = await getOrCreatePlatformUniversity(ctx);
+      const existingUniversity = existing.universityId
+        ? await ctx.db.get(existing.universityId)
+        : null;
+      const superAdminNeedsPlatformLink =
+        existing.role === "super_admin" && (!existingUniversity || !isPlatformUniversity(existingUniversity));
+
       const nextUniversityId: Doc<"users">["universityId"] =
         existing.role === "super_admin"
-          ? existing.universityId
+          ? (superAdminNeedsPlatformLink ? platformForExisting._id : existing.universityId!)
           : (existing.universityId ?? resolved?.university._id);
 
-      if (existing.role !== "super_admin" && !nextUniversityId) {
-        throw new Error("A university is required for non-super-admin users");
+      if (!nextUniversityId) {
+        throw new Error("A university is required to update the user");
       }
 
       await ctx.db.patch(existing._id, {
@@ -307,10 +403,17 @@ export const syncUserFromWebhook = internalMutation({
     }
 
     const role = isFirstUser ? "super_admin" : (args.preferredRole ?? "student");
-    const universityId = role === "super_admin" ? undefined : resolved?.university._id;
+    const universityId =
+      role === "super_admin"
+        ? (await getOrCreatePlatformUniversity(ctx))._id
+        : resolved?.university._id;
 
     if (role !== "super_admin" && !universityId) {
       throw new Error("A university is required for non-super-admin users");
+    }
+
+    if (!universityId) {
+      throw new Error("A university is required to create the user");
     }
 
     const userId = await ctx.db.insert("users", {
@@ -422,6 +525,10 @@ export const createUniversity = mutation({
 
     if (existing) {
       throw new Error("University code already exists");
+    }
+
+    if (args.universityCode.trim().toUpperCase() === "PLATFORM") {
+      throw new Error("The PLATFORM code is reserved for the platform administration tenant");
     }
 
     const now = Date.now();
