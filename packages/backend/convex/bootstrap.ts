@@ -205,15 +205,16 @@ export const syncCurrentUser = mutation({
     const externalId = identity.subject ?? identity.tokenIdentifier;
     const email = identity.email ?? `${externalId}@unknown.local`;
     const now = Date.now();
-    const allUsers = await ctx.db.query("users").collect();
-    const isFirstUser = allUsers.length === 0;
-    const resolved = isFirstUser ? null : await resolveUniversityFromEmail(ctx, email);
 
+    // 1. Try to find existing user by Clerk subject (already linked).
     let existing = await ctx.db
       .query("users")
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
       .unique();
 
+    // 2. Try to adopt a seeded super_admin by email. This handles the
+    //    case where a user was seeded with externalId="seed:<email>"
+    //    before they had a Clerk identity.
     if (!existing) {
       existing = await adoptSeededSuperAdminByEmail(ctx, {
         email,
@@ -223,6 +224,16 @@ export const syncCurrentUser = mutation({
         now,
       });
     }
+
+    // 3. Only resolve by email domain for NEW (non-seeded) users.
+    //    Doing this earlier would throw for super_admins whose email
+    //    domain (e.g. outlook.com) is not approved for any tenant.
+    const isFirstUser = !existing && (await ctx.db.query("users").collect()).length === 0;
+    const resolved = existing
+      ? null
+      : isFirstUser
+        ? null
+        : await resolveUniversityFromEmail(ctx, email);
 
     if (existing) {
       if (existing.role !== "super_admin") {
@@ -274,7 +285,7 @@ export const syncCurrentUser = mutation({
       };
     }
 
-    const role = allUsers.length === 0 ? "super_admin" : (args.preferredRole ?? "student");
+    const role = isFirstUser ? "super_admin" : (args.preferredRole ?? "student");
     const universityId =
       role === "super_admin"
         ? (await getOrCreatePlatformUniversity(ctx))._id
@@ -332,15 +343,14 @@ export const syncUserFromWebhook = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const allUsers = await ctx.db.query("users").collect();
-    const isFirstUser = allUsers.length === 0;
-    const resolved = isFirstUser ? null : await resolveUniversityFromEmail(ctx, args.email);
 
+    // 1. Try to find existing user by externalId (already linked).
     let existing = await ctx.db
       .query("users")
       .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
       .unique();
 
+    // 2. Try to adopt a seeded super_admin by email.
     if (!existing) {
       existing = await adoptSeededSuperAdminByEmail(ctx, {
         email: args.email,
@@ -350,6 +360,14 @@ export const syncUserFromWebhook = internalMutation({
         now,
       });
     }
+
+    // 3. Only resolve by email domain for NEW (non-seeded) users.
+    const isFirstUser = !existing && (await ctx.db.query("users").collect()).length === 0;
+    const resolved = existing
+      ? null
+      : isFirstUser
+        ? null
+        : await resolveUniversityFromEmail(ctx, args.email);
 
     if (existing) {
       if (existing.role !== "super_admin") {
