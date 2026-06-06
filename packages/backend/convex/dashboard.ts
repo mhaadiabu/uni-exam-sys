@@ -2,7 +2,7 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 import { computeAttendanceCounters } from "./lib/attendance";
-import { getScopedUniversityId, requireRole, requireSessionUser } from "./lib/auth";
+import { getOptionalScopedUniversityId, getScopedUniversityId, requireRole, requireSessionUser } from "./lib/auth";
 
 export const adminDashboard = query({
   args: {
@@ -323,7 +323,7 @@ export const listAuditLogs = query({
     const session = await requireSessionUser(ctx);
     requireRole(session.user, ["super_admin", "university_admin"]);
 
-    const scoped = getScopedUniversityId(session.user, args.universityId);
+    const scoped = getOptionalScopedUniversityId(session.user, args.universityId);
     const limit = Math.min(args.limit ?? 200, 500);
 
     const query = scoped
