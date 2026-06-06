@@ -11,12 +11,18 @@ import {
 import { isPlatformUniversity } from "./lib/platform";
 
 export const listUniversities = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    includeDeleted: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
+    const includeDeleted = args.includeDeleted === true;
+
     if (session.user.role === "super_admin") {
       const all = await ctx.db.query("universities").collect();
-      return all.filter((university) => !isPlatformUniversity(university));
+      return all
+        .filter((university) => !isPlatformUniversity(university))
+        .filter((university) => includeDeleted || !university.deletedAt);
     }
 
     if (!session.user.universityId) {
@@ -25,6 +31,9 @@ export const listUniversities = query({
 
     const ownUniversity = await ctx.db.get(session.user.universityId);
     if (!ownUniversity || isPlatformUniversity(ownUniversity)) {
+      return [];
+    }
+    if (!includeDeleted && ownUniversity.deletedAt) {
       return [];
     }
     return [ownUniversity];
@@ -157,5 +166,88 @@ export const updateAllowedEmailDomains = mutation({
     });
 
     return scopedUniversityId;
+  },
+});
+
+export const softDeleteUniversity = mutation({
+  args: {
+    universityId: v.id("universities"),
+    confirmationName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin"]);
+
+    const university = await ctx.db.get(args.universityId);
+    if (!university) {
+      throw new Error("University not found");
+    }
+    if (isPlatformUniversity(university)) {
+      throw new Error("The platform tenant cannot be deleted");
+    }
+    if (university.deletedAt) {
+      throw new Error("University is already deleted");
+    }
+    if (args.confirmationName.trim() !== university.name) {
+      throw new Error("Confirmation name does not match");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.universityId, {
+      isActive: false,
+      deletedAt: now,
+      updatedAt: now,
+    });
+
+    await writeAuditLog(ctx, {
+      action: "university.soft_deleted",
+      entityType: "universities",
+      entityId: args.universityId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: args.universityId,
+      context: {
+        confirmationName: args.confirmationName.trim(),
+        name: university.name,
+      },
+    });
+
+    return args.universityId;
+  },
+});
+
+export const restoreUniversity = mutation({
+  args: {
+    universityId: v.id("universities"),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin"]);
+
+    const university = await ctx.db.get(args.universityId);
+    if (!university) {
+      throw new Error("University not found");
+    }
+    if (!university.deletedAt) {
+      throw new Error("University is not deleted");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.universityId, {
+      isActive: true,
+      deletedAt: undefined,
+      updatedAt: now,
+    });
+
+    await writeAuditLog(ctx, {
+      action: "university.restored",
+      entityType: "universities",
+      entityId: args.universityId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: args.universityId,
+    });
+
+    return args.universityId;
   },
 });

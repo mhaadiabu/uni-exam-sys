@@ -529,24 +529,18 @@ export const me = query({
 export const createUniversity = mutation({
   args: {
     universityName: v.string(),
-    universityCode: v.string(),
+    universityPrefix: v.optional(v.string()),
     allowedEmailDomains: v.array(v.string()),
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
     requireRole(session.user, ["super_admin"]);
 
-    const existing = await ctx.db
-      .query("universities")
-      .withIndex("by_code", (q) => q.eq("code", args.universityCode))
-      .unique();
-
-    if (existing) {
-      throw new Error("University code already exists");
-    }
-
-    if (args.universityCode.trim().toUpperCase() === "PLATFORM") {
-      throw new Error("The PLATFORM code is reserved for the platform administration tenant");
+    const prefix = args.universityPrefix?.trim();
+    if (prefix && !/^[A-Za-z0-9._-]{1,16}$/.test(prefix)) {
+      throw new Error(
+        "Prefix must be 1-16 characters: letters, digits, dot, underscore, or hyphen",
+      );
     }
 
     const now = Date.now();
@@ -560,7 +554,7 @@ export const createUniversity = mutation({
 
     const universityId = await ctx.db.insert("universities", {
       name: args.universityName,
-      code: args.universityCode,
+      prefix: prefix || undefined,
       allowedEmailDomains,
       isActive: true,
       createdAt: now,
@@ -586,6 +580,7 @@ export const createUniversity = mutation({
       universityId,
       context: {
         allowedEmailDomains,
+        prefix: prefix || null,
         createdBy: session.identity.externalId,
       },
     });

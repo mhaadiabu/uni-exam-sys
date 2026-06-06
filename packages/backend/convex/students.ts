@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 
 import { writeAuditLog } from "./lib/audit";
@@ -11,6 +12,20 @@ import {
 } from "./lib/auth";
 
 const feeStatusValidator = v.union(v.literal("cleared"), v.literal("outstanding"));
+
+async function applyUniversityPrefix(
+  ctx: { db: { get: (id: Id<"universities">) => Promise<{ prefix?: string } | null> } },
+  universityId: Id<"universities">,
+  rawStudentId: string,
+): Promise<string> {
+  const trimmed = rawStudentId.trim();
+  if (!trimmed) return trimmed;
+  const university = await ctx.db.get(universityId);
+  const prefix = university?.prefix?.trim();
+  if (!prefix) return trimmed;
+  if (trimmed.toUpperCase().startsWith(prefix.toUpperCase())) return trimmed;
+  return `${prefix}${trimmed}`;
+}
 
 export const listStudents = query({
   args: {
@@ -133,11 +148,12 @@ export const createStudent = mutation({
     requireRole(session.user, ["super_admin", "university_admin"]);
 
     const universityId = getScopedUniversityId(session.user, args.universityId);
+    const finalStudentId = await applyUniversityPrefix(ctx, universityId, args.studentId);
 
     const existingStudentId = await ctx.db
       .query("students")
       .withIndex("by_university_student_id", (q) =>
-        q.eq("universityId", universityId).eq("studentId", args.studentId),
+        q.eq("universityId", universityId).eq("studentId", finalStudentId),
       )
       .unique();
 
@@ -160,7 +176,7 @@ export const createStudent = mutation({
     const studentDocId = await ctx.db.insert("students", {
       universityId,
       userId: args.userId,
-      studentId: args.studentId,
+      studentId: finalStudentId,
       indexNumber: args.indexNumber,
       fullName: args.fullName,
       email: args.email,
@@ -318,7 +334,8 @@ export const importStudentsCsv = mutation({
       const row = rows[index];
       const rowNumber = index + 2;
 
-      const studentId = row.studentId || row.student_id || row.id;
+      const rawStudentId = row.studentId || row.student_id || row.id;
+      const studentId = await applyUniversityPrefix(ctx, universityId, rawStudentId);
       const indexNumber = row.indexNumber || row.index_number || row.index;
       const fullName = row.fullName || row.full_name || row.name;
 

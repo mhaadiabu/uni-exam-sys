@@ -247,11 +247,24 @@ function StudentsTab() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <Label>Student ID</Label>
-            <Input
-              value={newStudentId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewStudentId(e.target.value)}
-              placeholder="STD-0001"
-            />
+            <div className="flex items-center rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring">
+              {me.university?.prefix ? (
+                <span className="select-none border-r bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground">
+                  {me.university.prefix}
+                </span>
+              ) : null}
+              <Input
+                value={newStudentId}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewStudentId(e.target.value)}
+                placeholder={me.university?.prefix ? "0001" : "STD-0001"}
+                className="h-8 flex-1 border-0 shadow-none focus-visible:ring-0"
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              {me.university?.prefix
+                ? `The prefix “${me.university.prefix}” is added automatically. Type only the suffix.`
+                : "No prefix set for this university."}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Index number</Label>

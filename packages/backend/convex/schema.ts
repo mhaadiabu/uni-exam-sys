@@ -76,16 +76,19 @@ const notificationScopeValidator = v.union(
 export default defineSchema({
   universities: defineTable({
     name: v.string(),
-    code: v.string(),
+    code: v.optional(v.string()),
+    prefix: v.optional(v.string()),
     allowedEmailDomains: v.array(v.string()),
     isActive: v.boolean(),
     isPlatform: v.optional(v.boolean()),
+    deletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])
-    .index("by_platform", ["isPlatform"]),
+    .index("by_platform", ["isPlatform"])
+    .index("by_deleted", ["deletedAt"]),
 
   brandingSettings: defineTable({
     universityId: v.id("universities"),
