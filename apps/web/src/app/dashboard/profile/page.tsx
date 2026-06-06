@@ -1,30 +1,26 @@
 "use client";
 
+import { useClerk } from "@clerk/nextjs";
 import { LogOut, User } from "lucide-react";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
 import { Button } from "@uni-exam-sys/ui/components/button";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
 
+import { PageHeader } from "@/components/dashboard/kpi";
+import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 import { formatDateTime, roleLabel } from "@/lib/utils";
 
-import type { Doc } from "@uni-exam-sys/backend/convex/_generated/dataModel";
+export default function ProfilePage() {
+  const me = useMe();
+  const clerk = useClerk();
 
-export function ProfileSection({
-  me,
-  onSignOut,
-}: {
-  me: Doc<"users"> & { university?: Doc<"universities"> | null };
-  onSignOut: () => void | Promise<void>;
-}) {
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-serif text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-xs text-muted-foreground">
-          Your account information and access details.
-        </p>
-      </div>
+      <PageHeader
+        title="Profile"
+        description="Your account information and access details."
+      />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_2fr]">
         <div className="rounded-md border bg-card p-4 shadow-sm">
@@ -49,7 +45,7 @@ export function ProfileSection({
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => void onSignOut()}
+            onClick={() => void clerk.signOut()}
           >
             <LogOut className="mr-2 size-3.5" />
             Sign out

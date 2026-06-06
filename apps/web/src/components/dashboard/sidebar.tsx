@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
-
 import {
-  type LucideIcon,
   BookOpen,
   Building2,
   CalendarClock,
+  type LucideIcon,
   ClipboardCheck,
   CreditCard,
   FileCheck,
@@ -22,19 +20,23 @@ import {
   Search,
   Settings,
   Shield,
-  ShieldCheck,
-  UserCheck,
   UserCog,
   Users,
   Wallet,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { Route } from "next";
 
-import { roleLabel } from "@/lib/utils";
+import { useClerk } from "@clerk/nextjs";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
 import { Button } from "@uni-exam-sys/ui/components/button";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
+import { cn } from "@uni-exam-sys/ui/lib/utils";
+
+import { roleLabel } from "@/lib/utils";
 
 import {
   type AppRole,
@@ -42,7 +44,7 @@ import {
   type SectionId,
   GROUP_LABELS,
   SECTIONS_BY_ROLE,
-} from "./section-defs";
+} from "./sections";
 
 const ICONS: Record<SectionId, LucideIcon> = {
   home: Home,
@@ -83,19 +85,15 @@ const ICONS: Record<SectionId, LucideIcon> = {
 
 export function Sidebar({
   role,
-  activeSection,
-  onSelect,
-  onSignOut,
   userName,
   userEmail,
 }: {
   role: AppRole;
-  activeSection: SectionId;
-  onSelect: (section: SectionId) => void;
-  onSignOut: () => void | Promise<void>;
   userName?: string;
   userEmail?: string;
 }) {
+  const clerk = useClerk();
+  const pathname = usePathname();
   const sections = SECTIONS_BY_ROLE[role];
   const grouped = sections.reduce<Record<string, SectionDef[]>>(
     (acc, section) => {
@@ -137,17 +135,17 @@ export function Sidebar({
               <div className="space-y-0.5">
                 {list.map((section) => {
                   const Icon = ICONS[section.id] ?? Home;
-                  const isActive = activeSection === section.id;
+                  const isActive = pathname === section.href;
                   return (
-                    <button
+                    <Link
                       key={section.id}
-                      type="button"
-                      onClick={() => onSelect(section.id)}
-                      className={`flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                      href={section.href as Route}
+                      className={cn(
+                        "flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors",
                         isActive
                           ? "bg-primary/10 font-medium text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
                     >
                       <Icon className="mt-0.5 size-3.5 shrink-0" />
                       <div className="min-w-0 flex-1">
@@ -158,7 +156,7 @@ export function Sidebar({
                           </p>
                         ) : null}
                       </div>
-                    </button>
+                    </Link>
                   );
                 })}
               </div>
@@ -179,7 +177,7 @@ export function Sidebar({
             variant="ghost"
             size="sm"
             className="justify-start text-xs"
-            onClick={() => onSelect("profile")}
+            render={<Link href={"/dashboard/profile" as Route} />}
           >
             <UserCog className="mr-1 size-3" />
             Profile
@@ -188,7 +186,7 @@ export function Sidebar({
             variant="ghost"
             size="sm"
             className="justify-start text-xs"
-            onClick={() => void onSignOut()}
+            onClick={() => void clerk.signOut()}
           >
             <Lock className="mr-1 size-3" />
             Sign out
