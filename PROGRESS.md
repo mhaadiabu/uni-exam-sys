@@ -133,21 +133,57 @@ app/
       (`app/dashboard/timetable/page.tsx`)
 - [x] Seating — admin: generate (sequential/shuffled), view, freeze,
       download PDF (`app/dashboard/seating/page.tsx`)
+- [x] Attendance (admin review) + mark-attendance (invigilator)
+      with finalize & signature
+- [x] People (students CRUD + CSV import, users + Clerk picker)
+- [x] ID cards (admin bulk + reprint) + my-id-card (student)
+- [x] Results (admin review) + upload-results (lecturer) + my-results
+      (student, with GPA)
+- [x] Messages (DM, broadcast, notifications) + complaints
+      (queue + comment thread)
+- [x] Finance trio: fee-payments, course-reg-payments,
+      invigilator-payments
+- [x] Lecturer: my-courses (real); evaluate-lecturers,
+      lecturer-evals, my-evaluations = "coming soon" stubs
+      (no backend)
+- [x] Student: my-timetable, my-seating, register-courses, my-payments
 - [x] Deleted old `_components/` and `_sections/` directories
 - [x] `npx tsc --noEmit` passes
 
+### Backend additions made along the way
+- `convex/dashboard.ts` → `listAuditLogs` (super-admin-scoped,
+  actor-joined)
+- `convex/attendance.ts` → `attendanceSummary.rows[]` extended with
+  `examScheduleId`, `roomId`, `invigilatorId`, `examDate`,
+  `startTime`, `endTime` (so admin page can drill into a register)
+- `convex/students.ts` → `listMyResults`, `listMyPayments`
+  (student-scoped)
+- `convex/lecturers.ts` → `listAllResults` (admin cross-course view)
+- `convex/assignments.ts` → `listMyInvigilatorPay` (invigilator-scoped)
+- `convex/finance.ts` → `createCourseRegPayment` mutation
+- `convex/seating.ts` → `listMySeating` (student-scoped)
+- `convex/courseRegistrations.ts` (new file) →
+  `listAvailableCourses`, `listMyRegistrations`, `registerForCourse`,
+  `dropCourse` (with fee-status / late-registration guard,
+  audit-logged)
+- `convex/schema.ts` → added `"course_reg_payment"` to the
+  `paymentRecords.type` union, added optional `description` field,
+  added the new `courseRegistrations` table with three indexes
+
 ### Routes still to build
-- [ ] Attendance (admin review) + mark-attendance (invigilator grid)
-- [ ] People (users / students / lecturers / invigilators / finance)
-- [ ] ID cards (admin bulk) + my-id-card (student)
-- [ ] Results (admin) + upload-results (lecturer) + my-results
-- [ ] Messages, complaints
-- [ ] Finance: fee-payments, course-reg-payments, invigilator-payments
-- [ ] Lecturer: my-courses, my-evaluations, evaluate-lecturers,
-      lecturer-evals
-- [ ] Student: my-timetable, my-seating, register-courses, my-payments
 - [ ] Invigilator: my-assignments, verify-students, my-payments-inv
 - [ ] Reports, settings, security
 
+### Known gaps (deliberate, not blockers)
+- Lecturer evaluations (`evaluate-lecturers`, `lecturer-evals`,
+  `my-evaluations`) have no backend yet. Pages render a "coming
+  soon" card so the sidebar links work and a real implementation
+  can drop in later without re-wiring nav.
+- Backend `npx tsc` fails on a pre-existing missing
+  `@types/node` config error in `packages/backend/tsconfig.json`
+  — unrelated to this work. Web `npx tsc --noEmit` is clean.
+
 ### Final tasks
+- [ ] Invigilator trio
+- [ ] Reports / settings / security (stub-friendly — small surface)
 - [ ] Final typecheck + smoke test
