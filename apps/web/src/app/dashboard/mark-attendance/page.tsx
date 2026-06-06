@@ -299,7 +299,7 @@ export default function MarkAttendancePage() {
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="destructive"
                   className="h-7 text-xs"
                   onClick={() => markAll("absent")}
                   disabled={registerData.register.status === "finalized"}

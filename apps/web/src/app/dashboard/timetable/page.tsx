@@ -407,8 +407,7 @@ function SchedulesPanel() {
                         </Button>
                         <Button
                           size="xs"
-                          variant="outline"
-                          className="text-destructive"
+                          variant="destructive"
                           onClick={() => setConfirmDeleteId(s._id)}
                         >
                           <Trash2 className="size-3" />
@@ -616,8 +615,7 @@ function AssignmentsPanel() {
                   <TableCell>
                     <Button
                       size="xs"
-                      variant="outline"
-                      className="text-destructive"
+                      variant="destructive"
                       onClick={() => setConfirmDeleteId(a._id)}
                     >
                       <Trash2 className="mr-0.5 size-3" />

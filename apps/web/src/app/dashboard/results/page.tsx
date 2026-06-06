@@ -244,8 +244,8 @@ export default function ResultsPage() {
                           </Button>
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs text-destructive"
+                            variant="destructive"
+                            className="h-7 text-xs"
                             onClick={() => decide(r._id, "rejected")}
                           >
                             <X className="mr-1 size-3" /> Reject

@@ -830,8 +830,7 @@ function RoomsPanel() {
                         </Button>
                         <Button
                           size="xs"
-                          variant="outline"
-                          className="text-destructive"
+                          variant="destructive"
                           onClick={() => setConfirmDeleteId(r._id)}
                         >
                           <Trash2 className="size-3" />

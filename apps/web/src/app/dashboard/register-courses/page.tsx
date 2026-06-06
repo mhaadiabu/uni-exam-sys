@@ -243,8 +243,8 @@ export default function RegisterCoursesPage() {
                           {r.status === "registered" ? (
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs text-destructive"
+                              variant="destructive"
+                              className="h-7 text-xs"
                               onClick={() => onDrop(r._id)}
                             >
                               <X className="mr-1 size-3" /> Drop

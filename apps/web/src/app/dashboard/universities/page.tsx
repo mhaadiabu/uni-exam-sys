@@ -345,8 +345,7 @@ export default function UniversitiesPage() {
                       </Button>
                       <Button
                         size="xs"
-                        variant="outline"
-                        className="text-destructive"
+                        variant="destructive"
                         onClick={() => openDelete(u)}
                       >
                         <Trash2 className="mr-1 size-3" />

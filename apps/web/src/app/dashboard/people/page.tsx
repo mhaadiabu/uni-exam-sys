@@ -541,8 +541,7 @@ function StudentsTab() {
                         </Button>
                         <Button
                           size="xs"
-                          variant="outline"
-                          className="text-destructive"
+                          variant="destructive"
                           onClick={() => setConfirmDeleteId(s._id)}
                         >
                           <Trash2 className="size-3" />
@@ -1090,8 +1089,7 @@ function UsersTab() {
                       {u.isActive ? (
                         <Button
                           size="xs"
-                          variant="outline"
-                          className="text-destructive"
+                          variant="destructive"
                           onClick={() => setConfirmDeactivateId(u._id)}
                         >
                           <Trash2 className="size-3" />
