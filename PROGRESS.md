@@ -122,19 +122,32 @@ app/
       with explicit `href` per route
 - [x] New home page (`app/dashboard/page.tsx`) with role-aware KPIs
       and quick links
-- [x] New profile page (`app/dashboard/profile/page.tsx`)
+- [x] Profile (`app/dashboard/profile/page.tsx`)
+- [x] Universities — super admin: list, create, edit email domains
+      (`app/dashboard/universities/page.tsx`)
+- [x] Audit log — super admin: searchable, university filter
+      (`app/dashboard/audit/page.tsx`)
+- [x] Setup — admin: programs / courses / rooms CRUD
+      (`app/dashboard/setup/page.tsx`)
+- [x] Timetable — admin: schedules + invigilator assignments
+      (`app/dashboard/timetable/page.tsx`)
+- [x] Seating — admin: generate (sequential/shuffled), view, freeze,
+      download PDF (`app/dashboard/seating/page.tsx`)
 - [x] Deleted old `_components/` and `_sections/` directories
 - [x] `npx tsc --noEmit` passes
 
-### Working app behaviour right now
-- `/dashboard` → new home with role KPIs
-- `/dashboard/profile` → profile
-- Any other sidebar link → 404 (not built yet)
+### Routes still to build
+- [ ] Attendance (admin review) + mark-attendance (invigilator grid)
+- [ ] People (users / students / lecturers / invigilators / finance)
+- [ ] ID cards (admin bulk) + my-id-card (student)
+- [ ] Results (admin) + upload-results (lecturer) + my-results
+- [ ] Messages, complaints
+- [ ] Finance: fee-payments, course-reg-payments, invigilator-payments
+- [ ] Lecturer: my-courses, my-evaluations, evaluate-lecturers,
+      lecturer-evals
+- [ ] Student: my-timetable, my-seating, register-courses, my-payments
+- [ ] Invigilator: my-assignments, verify-students, my-payments-inv
+- [ ] Reports, settings, security
 
-### Next up
-- [ ] Build the super admin routes: `universities`, `audit`
-- [ ] Then admin routes: `people`, `setup`, `timetable`, `seating`,
-      `attendance`, `id-cards`, `results`, `messages`, `complaints`,
-      `security`, `reports`, `settings`, `lecturer-evals`
-- [ ] Then student / invigilator / finance / lecturer routes
-- [ ] Final smoke test of full nav
+### Final tasks
+- [ ] Final typecheck + smoke test
