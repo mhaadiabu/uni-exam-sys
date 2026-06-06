@@ -449,12 +449,19 @@ export const attendanceSummary = query({
           .collect();
         const counters = computeAttendanceCounters(attendanceRows, attendanceRows.length || 1);
         const room = await ctx.db.get(register.roomId);
+        const schedule = await ctx.db.get(register.examScheduleId);
         return {
           registerId: register._id,
+          examScheduleId: register.examScheduleId,
+          roomId: register.roomId,
+          invigilatorId: register.invigilatorId,
           roomName: room?.name ?? "Unknown Room",
           status: register.status,
           counters,
           finalizedAt: register.finalizedAt,
+          examDate: schedule?.examDate,
+          startTime: schedule?.startTime,
+          endTime: schedule?.endTime,
         };
       }),
     );
