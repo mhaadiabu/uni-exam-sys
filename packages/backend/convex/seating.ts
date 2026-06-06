@@ -252,3 +252,47 @@ async function getDefaultRoomIds(
 
   throw new Error("No rooms assigned to this exam schedule");
 }
+
+export const listMySeating = query({
+  handler: async (ctx) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["student", "super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, session.user.universityId);
+
+    const students = await ctx.db
+      .query("students")
+      .withIndex("by_university", (q) => q.eq("universityId", scoped))
+      .collect();
+
+    const student = students.find((candidate) => candidate.userId === session.user._id);
+    if (!student) {
+      return [];
+    }
+
+    const assignments = await ctx.db.query("seatingAssignments").collect();
+    const myAssignments = assignments.filter((a) => a.studentId === student._id);
+
+    const enriched = await Promise.all(
+      myAssignments.map(async (a) => {
+        const [schedule, room] = await Promise.all([
+          ctx.db.get(a.examScheduleId),
+          ctx.db.get(a.roomId),
+        ]);
+        const courseDoc = schedule ? await ctx.db.get(schedule.courseId) : null;
+        return {
+          ...a,
+          schedule,
+          course: courseDoc,
+          room,
+        };
+      }),
+    );
+
+    return enriched.sort((a, b) => {
+      const ad = a.schedule?.examDate ?? "";
+      const bd = b.schedule?.examDate ?? "";
+      return ad.localeCompare(bd);
+    });
+  },
+});

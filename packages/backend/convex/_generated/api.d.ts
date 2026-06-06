@@ -15,6 +15,7 @@ import type * as attendance from "../attendance.js";
 import type * as bootstrap from "../bootstrap.js";
 import type * as clerkUsers from "../clerkUsers.js";
 import type * as communications from "../communications.js";
+import type * as courseRegistrations from "../courseRegistrations.js";
 import type * as dashboard from "../dashboard.js";
 import type * as finance from "../finance.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   bootstrap: typeof bootstrap;
   clerkUsers: typeof clerkUsers;
   communications: typeof communications;
+  courseRegistrations: typeof courseRegistrations;
   dashboard: typeof dashboard;
   finance: typeof finance;
   healthCheck: typeof healthCheck;

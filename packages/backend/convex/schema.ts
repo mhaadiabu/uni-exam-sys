@@ -622,4 +622,23 @@ export default defineSchema({
     .index("by_university", ["universityId"])
     .index("by_actor", ["actorUserId"])
     .index("by_action", ["action"]),
+
+  courseRegistrations: defineTable({
+    universityId: v.id("universities"),
+    studentId: v.id("students"),
+    courseId: v.id("courses"),
+    academicYear: v.string(),
+    semester: v.number(),
+    status: v.union(
+      v.literal("registered"),
+      v.literal("dropped"),
+      v.literal("completed"),
+    ),
+    registeredAt: v.number(),
+    droppedAt: v.optional(v.number()),
+  })
+    .index("by_student_term", ["studentId", "academicYear", "semester"])
+    .index("by_course_term", ["courseId", "academicYear", "semester"])
+    .index("by_student_course", ["studentId", "courseId"])
+    .index("by_university", ["universityId"]),
 });
