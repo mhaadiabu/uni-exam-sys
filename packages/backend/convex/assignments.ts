@@ -4,6 +4,34 @@ import { v } from "convex/values";
 import { writeAuditLog } from "./lib/audit";
 import { getScopedUniversityId, requireRole, requireSessionUser, requireUniversityScope } from "./lib/auth";
 
+export const listMyInvigilatorPay = query({
+  handler: async (ctx) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["invigilator", "super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, session.user.universityId);
+
+    const invigilators = await ctx.db
+      .query("invigilators")
+      .withIndex("by_university", (q) => q.eq("universityId", scoped))
+      .collect();
+
+    const myProfile = invigilators.find((candidate) => candidate.userId === session.user._id);
+    if (!myProfile) {
+      return [];
+    }
+
+    const payments = await ctx.db
+      .query("paymentRecords")
+      .withIndex("by_invigilator", (q) => q.eq("invigilatorId", myProfile._id))
+      .collect();
+
+    return payments
+      .filter((p) => p.type === "invigilator_payment" || p.type === "attendance_bonus")
+      .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
 export const listInvigilatorProfiles = query({
   args: {
     universityId: v.optional(v.id("universities")),

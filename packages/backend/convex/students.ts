@@ -408,3 +408,82 @@ export const importStudentsCsv = mutation({
     return result;
   },
 });
+
+export const listMyResults = query({
+  args: {
+    academicYear: v.optional(v.string()),
+    semester: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["student", "super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, session.user.universityId);
+
+    const students = await ctx.db
+      .query("students")
+      .withIndex("by_university", (q) => q.eq("universityId", scoped))
+      .collect();
+
+    const student = students.find((candidate) => candidate.userId === session.user._id);
+    if (!student) {
+      return [];
+    }
+
+    let results = await ctx.db
+      .query("courseResults")
+      .withIndex("by_student", (q) => q.eq("studentId", student._id))
+      .collect();
+
+    if (args.academicYear) {
+      results = results.filter((r) => r.academicYear === args.academicYear);
+    }
+    if (typeof args.semester === "number") {
+      results = results.filter((r) => r.semester === args.semester);
+    }
+
+    const enriched = await Promise.all(
+      results.map(async (r) => {
+        const [course, lecturer, examSchedule] = await Promise.all([
+          ctx.db.get(r.courseId),
+          ctx.db.get(r.lecturerId),
+          r.examScheduleId ? ctx.db.get(r.examScheduleId) : Promise.resolve(null),
+        ]);
+        return {
+          ...r,
+          course,
+          lecturer,
+          examSchedule,
+        };
+      }),
+    );
+
+    return enriched;
+  },
+});
+
+export const listMyPayments = query({
+  handler: async (ctx) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["student", "super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, session.user.universityId);
+
+    const students = await ctx.db
+      .query("students")
+      .withIndex("by_university", (q) => q.eq("universityId", scoped))
+      .collect();
+
+    const student = students.find((candidate) => candidate.userId === session.user._id);
+    if (!student) {
+      return [];
+    }
+
+    const payments = await ctx.db
+      .query("paymentRecords")
+      .withIndex("by_student", (q) => q.eq("studentId", student._id))
+      .collect();
+
+    return payments.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});

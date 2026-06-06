@@ -63,6 +63,54 @@ export const updateStudentClearance = mutation({
   },
 });
 
+export const createCourseRegPayment = mutation({
+  args: {
+    universityId: v.optional(v.id("universities")),
+    studentDocId: v.id("students"),
+    amount: v.number(),
+    reference: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["finance", "super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, args.universityId);
+    const student = await ctx.db.get(args.studentDocId);
+    if (!student) {
+      throw new Error("Student not found");
+    }
+    if (student.universityId !== scoped) {
+      throw new Error("Cross-tenant access denied");
+    }
+
+    const now = Date.now();
+    const paymentId = await ctx.db.insert("paymentRecords", {
+      universityId: scoped,
+      studentId: args.studentDocId,
+      type: "course_reg_payment",
+      amount: args.amount,
+      status: "pending",
+      reference: args.reference,
+      description: args.description,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await writeAuditLog(ctx, {
+      action: "finance.course_reg_payment_created",
+      entityType: "paymentRecords",
+      entityId: paymentId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: scoped,
+      context: { studentId: args.studentDocId, amount: args.amount },
+    });
+
+    return paymentId;
+  },
+});
+
 export const listClearanceOverview = query({
   args: {
     universityId: v.optional(v.id("universities")),

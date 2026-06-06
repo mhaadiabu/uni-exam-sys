@@ -570,6 +570,7 @@ export default defineSchema({
     invigilatorId: v.optional(v.id("invigilators")),
     type: v.union(
       v.literal("student_fee"),
+      v.literal("course_reg_payment"),
       v.literal("invigilator_payment"),
       v.literal("attendance_bonus"),
       v.literal("penalty_fee"),
@@ -577,6 +578,7 @@ export default defineSchema({
     amount: v.number(),
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("paid")),
     reference: v.string(),
+    description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

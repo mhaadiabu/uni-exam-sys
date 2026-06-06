@@ -670,6 +670,53 @@ export const reviewCourseResult = mutation({
   },
 });
 
+export const listAllResults = query({
+  args: {
+    universityId: v.optional(v.id("universities")),
+    status: v.optional(
+      v.union(
+        v.literal("draft"),
+        v.literal("submitted"),
+        v.literal("approved"),
+        v.literal("rejected"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, args.universityId);
+
+    const results = await ctx.db
+      .query("courseResults")
+      .withIndex("by_university", (q) => q.eq("universityId", scoped))
+      .collect();
+
+    const filtered = args.status ? results.filter((r) => r.status === args.status) : results;
+
+    const enriched = await Promise.all(
+      filtered.map(async (r) => {
+        const [course, lecturer, student, examSchedule] = await Promise.all([
+          ctx.db.get(r.courseId),
+          ctx.db.get(r.lecturerId),
+          ctx.db.get(r.studentId),
+          r.examScheduleId ? ctx.db.get(r.examScheduleId) : Promise.resolve(null),
+        ]);
+        return {
+          ...r,
+          course,
+          lecturer,
+          student,
+          examSchedule,
+        };
+      }),
+    );
+
+    return enriched.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
 export const lecturerDashboard = query({
   args: {
     universityId: v.optional(v.id("universities")),
