@@ -147,6 +147,13 @@ app/
       lecturer-evals, my-evaluations = "coming soon" stubs
       (no backend)
 - [x] Student: my-timetable, my-seating, register-courses, my-payments
+- [x] Invigilator: my-assignments (today/upcoming/history tabs + PDF
+      export), verify-students (search + log + penalty + history),
+      my-payments-inv (read-only pay view)
+- [x] Admin: reports (timetable, attendance, students, rooms,
+      schedules, finance payments, defaulter attendance as PDF/CSV),
+      settings (workspace identity + editable branding), security
+      (Clerk note + filtered audit log)
 - [x] Deleted old `_components/` and `_sections/` directories
 - [x] `npx tsc --noEmit` passes
 
@@ -171,8 +178,7 @@ app/
   added the new `courseRegistrations` table with three indexes
 
 ### Routes still to build
-- [ ] Invigilator: my-assignments, verify-students, my-payments-inv
-- [ ] Reports, settings, security
+- _none — all sidebar routes ship as real pages_
 
 ### Known gaps (deliberate, not blockers)
 - Lecturer evaluations (`evaluate-lecturers`, `lecturer-evals`,
@@ -182,8 +188,3 @@ app/
 - Backend `npx tsc` fails on a pre-existing missing
   `@types/node` config error in `packages/backend/tsconfig.json`
   — unrelated to this work. Web `npx tsc --noEmit` is clean.
-
-### Final tasks
-- [ ] Invigilator trio
-- [ ] Reports / settings / security (stub-friendly — small surface)
-- [ ] Final typecheck + smoke test
