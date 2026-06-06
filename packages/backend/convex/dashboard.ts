@@ -313,3 +313,40 @@ export const superAdminDashboard = query({
     };
   },
 });
+
+export const listAuditLogs = query({
+  args: {
+    universityId: v.optional(v.id("universities")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin", "university_admin"]);
+
+    const scoped = getScopedUniversityId(session.user, args.universityId);
+    const limit = Math.min(args.limit ?? 200, 500);
+
+    const query = scoped
+      ? ctx.db.query("auditLogs").withIndex("by_university", (q) =>
+          q.eq("universityId", scoped),
+        )
+      : ctx.db.query("auditLogs");
+
+    const logs = await query.order("desc").take(limit);
+
+    const actorIds = Array.from(
+      new Set(logs.map((log) => log.actorUserId).filter((id): id is NonNullable<typeof id> => id !== undefined)),
+    );
+    const actors = await Promise.all(actorIds.map((id) => ctx.db.get(id)));
+    const actorMap = new Map(actorIds.map((id, i) => [id, actors[i]]));
+
+    return logs.map((log) => ({
+      ...log,
+      actor: log.actorUserId
+        ? (actorMap.get(log.actorUserId)
+            ? { _id: log.actorUserId, fullName: actorMap.get(log.actorUserId)?.fullName ?? null, role: actorMap.get(log.actorUserId)?.role ?? null }
+            : null)
+        : null,
+    }));
+  },
+});
