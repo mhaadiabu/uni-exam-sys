@@ -177,6 +177,7 @@ export function Sidebar({
             variant="ghost"
             size="sm"
             className="justify-start text-xs"
+            nativeButton={false}
             render={<Link href={"/dashboard/profile" as Route} />}
           >
             <UserCog className="mr-1 size-3" />

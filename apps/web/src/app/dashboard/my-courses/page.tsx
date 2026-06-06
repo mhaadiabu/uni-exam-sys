@@ -63,6 +63,7 @@ export default function MyCoursesPage() {
           <Button
             size="sm"
             className="h-8 text-xs"
+            nativeButton={false}
             render={<Link href={"/dashboard/upload-results" as Route} />}
           >
             <GraduationCap className="mr-1 size-3" /> Upload results

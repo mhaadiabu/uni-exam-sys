@@ -245,6 +245,7 @@ function QuickLinks({ role }: { role: string }) {
           key={section.id}
           variant="outline"
           className="h-auto justify-between gap-2 px-3 py-2 text-left text-xs"
+          nativeButton={false}
           render={<Link href={section.href as Route} />}
         >
           <span className="flex flex-col items-start text-left">

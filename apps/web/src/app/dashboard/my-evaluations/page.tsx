@@ -35,6 +35,7 @@ export default function MyEvaluationsPage() {
           <Button
             size="sm"
             className="h-8 text-xs"
+            nativeButton={false}
             render={<Link href={"/dashboard/my-courses" as Route} />}
           >
             <MessageSquarePlus className="mr-1 size-3" /> View your courses
