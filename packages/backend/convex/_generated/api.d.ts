@@ -13,6 +13,7 @@ import type * as announcements from "../announcements.js";
 import type * as assignments from "../assignments.js";
 import type * as attendance from "../attendance.js";
 import type * as bootstrap from "../bootstrap.js";
+import type * as clerkUsers from "../clerkUsers.js";
 import type * as communications from "../communications.js";
 import type * as dashboard from "../dashboard.js";
 import type * as finance from "../finance.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   assignments: typeof assignments;
   attendance: typeof attendance;
   bootstrap: typeof bootstrap;
+  clerkUsers: typeof clerkUsers;
   communications: typeof communications;
   dashboard: typeof dashboard;
   finance: typeof finance;
