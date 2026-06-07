@@ -70,7 +70,7 @@ export default function MySeatingPage() {
         }
       />
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center gap-2 p-4">
           <MapPin className="size-4 text-primary" />
           <h2 className="text-sm font-semibold">All seats</h2>
@@ -94,7 +94,7 @@ export default function MySeatingPage() {
               {rows.map((r) => (
                 <div
                   key={r._id}
-                  className="rounded-md border bg-card p-3 shadow-sm"
+                  className="rounded-md border bg-card p-3"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase text-muted-foreground">

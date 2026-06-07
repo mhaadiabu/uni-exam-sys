@@ -65,11 +65,11 @@ export default function MyTimetablePage() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md border bg-card p-3 shadow-sm">
+            <div className="rounded-md border bg-card p-3">
               <p className="text-[11px] uppercase text-muted-foreground">Program</p>
               <p className="mt-1 text-sm font-medium">{data.program?.name ?? "—"}</p>
             </div>
-            <div className="rounded-md border bg-card p-3 shadow-sm">
+            <div className="rounded-md border bg-card p-3">
               <p className="text-[11px] uppercase text-muted-foreground">Fee status</p>
               <p className="mt-1 text-sm font-medium">
                 <Badge
@@ -80,13 +80,13 @@ export default function MyTimetablePage() {
                 </Badge>
               </p>
             </div>
-            <div className="rounded-md border bg-card p-3 shadow-sm">
+            <div className="rounded-md border bg-card p-3">
               <p className="text-[11px] uppercase text-muted-foreground">Exams</p>
               <p className="mt-1 text-sm font-medium">{data.timetable.length}</p>
             </div>
           </div>
 
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <Input
               value={search}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
@@ -95,7 +95,7 @@ export default function MyTimetablePage() {
             />
           </div>
 
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card">
             <div className="flex items-center gap-2 p-4">
               <Calendar className="size-4 text-primary" />
               <h2 className="text-sm font-semibold">Exam schedule</h2>

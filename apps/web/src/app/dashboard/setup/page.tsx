@@ -171,7 +171,7 @@ function ProgramsPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <Plus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Create program</h2>
@@ -214,7 +214,7 @@ function ProgramsPanel() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between p-4">
           <h2 className="text-sm font-semibold">All programs</h2>
           <Badge variant="secondary">{programs.length}</Badge>
@@ -390,7 +390,7 @@ function CoursesPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <Plus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Create course</h2>
@@ -456,7 +456,7 @@ function CoursesPanel() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 p-4">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold">Courses</h2>
@@ -674,7 +674,7 @@ function RoomsPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <Plus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Create room</h2>
@@ -738,7 +738,7 @@ function RoomsPanel() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between p-4">
           <h2 className="text-sm font-semibold">All rooms</h2>
           <Badge variant="secondary">{rooms.length}</Badge>

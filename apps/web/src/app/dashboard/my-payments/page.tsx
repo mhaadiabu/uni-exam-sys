@@ -104,7 +104,7 @@ export default function MyPaymentsPage() {
         actions={
           <button
             onClick={exportPdf}
-            className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs shadow-sm hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs hover:bg-muted"
           >
             <FileText className="size-3" /> Export PDF
           </button>
@@ -112,21 +112,21 @@ export default function MyPaymentsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Paid</p>
           <p className="mt-1 text-lg font-semibold text-primary">{totals.paid.toLocaleString()}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Approved</p>
           <p className="mt-1 text-lg font-semibold">{totals.approved.toLocaleString()}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Pending</p>
           <p className="mt-1 text-lg font-semibold">{totals.pending.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -151,7 +151,7 @@ export default function MyPaymentsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         {payments === undefined ? (
           <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">

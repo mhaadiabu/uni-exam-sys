@@ -194,14 +194,14 @@ export default function MyAssignmentsPage() {
             <button
               onClick={() => exportList(todayRows, "Today")}
               disabled={todayRows.length === 0}
-              className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs shadow-sm hover:bg-muted disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs hover:bg-muted disabled:opacity-50"
             >
               <Calendar className="size-3" /> Export today
             </button>
             <button
               onClick={() => exportList(upcomingRows, "Upcoming")}
               disabled={upcomingRows.length === 0}
-              className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs shadow-sm hover:bg-muted disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs hover:bg-muted disabled:opacity-50"
             >
               <CalendarClock className="size-3" /> Export upcoming
             </button>
@@ -210,21 +210,21 @@ export default function MyAssignmentsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Today</p>
           <p className="mt-1 text-lg font-semibold text-primary">{todayRows.length}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Upcoming</p>
           <p className="mt-1 text-lg font-semibold">{upcomingRows.length}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Past</p>
           <p className="mt-1 text-lg font-semibold">{historyRows.length}</p>
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <div className="p-3">
             <TabsList>

@@ -163,7 +163,7 @@ export default function UploadResultsPage() {
         <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs">{feedback}</div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="grid gap-3 md:grid-cols-4">
           <div className="md:col-span-2">
             <label className="text-[11px] font-medium">Course</label>
@@ -218,7 +218,7 @@ export default function UploadResultsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
             <Upload className="size-4 text-primary" />

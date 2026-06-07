@@ -104,7 +104,7 @@ export default function MyResultsPage() {
         actions={
           <button
             onClick={exportPdf}
-            className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs shadow-sm hover:bg-muted"
+            className="inline-flex h-8 items-center gap-1 rounded-md border bg-card px-3 text-xs hover:bg-muted"
           >
             <FileText className="size-3" /> Export PDF
           </button>
@@ -112,7 +112,7 @@ export default function MyResultsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Cumulative GPA</p>
           <p className="mt-1 flex items-center gap-2 text-2xl font-semibold">
             <GraduationCap className="size-4 text-primary" />
@@ -123,11 +123,11 @@ export default function MyResultsPage() {
             {results.filter((r) => r.status === "approved").length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Total entries</p>
           <p className="mt-1 text-2xl font-semibold">{results.length}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Latest update</p>
           <p className="mt-1 text-xs font-medium">
             {results.length > 0 ? formatDateTime(Math.max(...results.map((r) => r.updatedAt))) : "—"}
@@ -135,7 +135,7 @@ export default function MyResultsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -161,7 +161,7 @@ export default function MyResultsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         {results === undefined ? (
           <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">

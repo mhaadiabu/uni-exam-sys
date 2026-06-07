@@ -6,11 +6,11 @@ import { AlertCircle } from "lucide-react";
 export default function EvaluateLecturersPage() {
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-card p-6 shadow-sm">
+      <div className="rounded-md border bg-card p-6">
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 size-5 text-primary" />
           <div>
-            <h1 className="font-serif text-2xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Evaluate Lecturers
             </h1>
             <p className="mt-1 text-xs text-muted-foreground">

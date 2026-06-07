@@ -121,15 +121,15 @@ export default function SecurityPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Security events today</p>
           <p className="mt-1 text-lg font-semibold text-primary">{todayCount}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">ID verifications logged</p>
           <p className="mt-1 text-lg font-semibold">{verificationCount}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">User role / deactivation events</p>
           <p className="mt-1 text-lg font-semibold">{userChanges}</p>
         </div>

@@ -28,8 +28,39 @@ import {
   TableHeader,
   TableRow,
 } from "@uni-exam-sys/ui/components/table";
+import { cn } from "@uni-exam-sys/ui/lib/utils";
 
 import { formatDateTime, roleLabel } from "@/lib/utils";
+
+const HIDDEN_CONTEXT_KEYS = new Set([
+  "previousExternalId",
+  "newExternalId",
+  "externalId",
+  "createdBy",
+  "id",
+  "_id",
+]);
+
+function formatContext(raw: string | undefined): { display: string; full: string } {
+  if (!raw) return { display: "—", full: "" };
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const entries = Object.entries(parsed as Record<string, unknown>).filter(
+        ([k]) => !HIDDEN_CONTEXT_KEYS.has(k),
+      );
+      if (entries.length === 0) return { display: "—", full: "" };
+      const full = entries
+        .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+        .join(" · ");
+      const display = full.length > 140 ? `${full.slice(0, 137)}…` : full;
+      return { display, full };
+    }
+    return { display: String(parsed), full: String(parsed) };
+  } catch {
+    return { display: raw, full: raw };
+  }
+}
 
 export default function AuditPage() {
   const me = useMe();
@@ -85,7 +116,7 @@ export default function AuditPage() {
         }
       />
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -124,7 +155,7 @@ export default function AuditPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center gap-2 p-4">
           <Shield className="size-4 text-primary" />
           <h2 className="text-sm font-semibold">Activity</h2>
@@ -134,47 +165,66 @@ export default function AuditPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Entity</TableHead>
+                <TableHead className="w-44">When</TableHead>
+                <TableHead className="w-44">Actor</TableHead>
+                <TableHead className="w-44">Action</TableHead>
+                <TableHead className="w-44">Entity</TableHead>
                 <TableHead>Context</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((log) => (
-                <TableRow key={log._id}>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {formatDateTime(log.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {log.actor ? (
+              {filtered.map((log) => {
+                const ctx = formatContext(log.context);
+                return (
+                  <TableRow key={log._id}>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {formatDateTime(log.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {log.actor ? (
+                        <div className="flex flex-col">
+                          <span className="truncate font-medium" title={log.actor.fullName ?? ""}>
+                            {log.actor.fullName ?? "—"}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {log.actor.role ? roleLabel(log.actor.role) : "—"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">System</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <code className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px]">
+                        {log.action}
+                      </code>
+                    </TableCell>
+                    <TableCell className="text-xs">
                       <div className="flex flex-col">
-                        <span className="font-medium">{log.actor.fullName ?? "—"}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {log.actor.role ? roleLabel(log.actor.role) : "—"}
-                        </span>
+                        <span className="font-medium">{log.entityType}</span>
+                        {log.entityId ? (
+                          <span
+                            className="font-mono text-[10px] text-muted-foreground"
+                            title={log.entityId}
+                          >
+                            #{log.entityId.slice(-6)}
+                          </span>
+                        ) : null}
                       </div>
-                    ) : (
-                      <span className="text-muted-foreground">System</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <code className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px]">
-                      {log.action}
-                    </code>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <span className="font-medium">{log.entityType}</span>
-                    {log.entityId ? (
-                      <span className="ml-1 text-muted-foreground">#{log.entityId.slice(-6)}</span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-md text-[11px] text-muted-foreground">
-                    {log.context ?? "—"}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "min-w-0 max-w-0 text-[11px] text-muted-foreground",
+                        "whitespace-normal",
+                      )}
+                    >
+                      <span className="block truncate" title={ctx.full}>
+                        {ctx.display}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-xs text-muted-foreground">

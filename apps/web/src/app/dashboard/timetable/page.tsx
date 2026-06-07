@@ -205,7 +205,7 @@ function SchedulesPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <Plus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Create schedule</h2>
@@ -298,7 +298,7 @@ function SchedulesPanel() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between p-4">
           <h2 className="text-sm font-semibold">Exam schedules</h2>
           <Badge variant="secondary">{schedules.length}</Badge>
@@ -517,7 +517,7 @@ function AssignmentsPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <UserPlus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Assign invigilator</h2>
@@ -586,7 +586,7 @@ function AssignmentsPanel() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between p-4">
           <h2 className="text-sm font-semibold">Current assignments</h2>
           <Badge variant="secondary">{assignments.length}</Badge>

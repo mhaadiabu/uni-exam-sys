@@ -136,7 +136,7 @@ export default function MessagesPage() {
         </TabsList>
 
         <TabsContent value="inbox">
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card">
             <ScrollArea className="max-h-[60vh]">
               <Table>
                 <TableHeader>
@@ -181,7 +181,7 @@ export default function MessagesPage() {
         </TabsContent>
 
         <TabsContent value="broadcasts">
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card">
             <ScrollArea className="max-h-[60vh]">
               <Table>
                 <TableHeader>
@@ -229,7 +229,7 @@ export default function MessagesPage() {
 
         {me.role === "university_admin" || me.role === "super_admin" ? (
           <TabsContent value="compose">
-            <div className="rounded-md border bg-card p-4 shadow-sm">
+            <div className="rounded-md border bg-card p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setComposeMode("direct")}
@@ -320,7 +320,7 @@ export default function MessagesPage() {
         ) : null}
 
         <TabsContent value="notifications">
-          <div className="rounded-md border bg-card shadow-sm">
+          <div className="rounded-md border bg-card">
             <ScrollArea className="max-h-[60vh]">
               <Table>
                 <TableHeader>

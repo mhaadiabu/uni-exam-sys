@@ -238,7 +238,7 @@ function StudentsTab() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <Plus className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Add student</h2>
@@ -397,7 +397,7 @@ function StudentsTab() {
         onImport={handleImport}
       />
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 p-4">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold">Students</h2>
@@ -612,7 +612,7 @@ function CsvImportCard({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-md border bg-card p-4 shadow-sm">
+    <div className="rounded-md border bg-card p-4">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -821,7 +821,7 @@ function UsersTab() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="mb-2 flex items-center gap-2">
           <UserCog className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Users</h2>
@@ -1009,7 +1009,7 @@ function UsersTab() {
         ) : null}
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <ScrollArea className="max-h-[60vh]">
           <Table>
             <TableHeader>

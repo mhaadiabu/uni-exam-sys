@@ -283,7 +283,7 @@ export default function ReportsPage() {
       ) : null}
 
       {isAdmin ? (
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-2">
               <FileText className="size-4 text-primary" />

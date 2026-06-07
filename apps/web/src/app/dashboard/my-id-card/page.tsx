@@ -97,7 +97,7 @@ export default function MyIdCardPage() {
       ) : null}
 
       {reprintOpen ? (
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <h2 className="text-sm font-semibold">Reprint request</h2>
           <p className="mt-1 text-[11px] text-muted-foreground">
             Tell your admin why you need a new card (lost, damaged, name change, etc).
@@ -126,7 +126,7 @@ export default function MyIdCardPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="overflow-hidden rounded-lg border bg-gradient-to-br from-primary/10 via-card to-card p-6 shadow-sm">
+        <div className="overflow-hidden rounded-md border bg-card p-6">
           <div className="flex items-center gap-2">
             <IdCard className="size-5 text-primary" />
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -169,7 +169,7 @@ export default function MyIdCardPage() {
           </div>
         </div>
 
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <div className="flex items-center gap-2">
             <Printer className="size-4 text-primary" />
             <h2 className="text-sm font-semibold">Card status</h2>

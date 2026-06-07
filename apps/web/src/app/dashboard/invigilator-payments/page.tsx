@@ -148,22 +148,22 @@ export default function InvigilatorPaymentsPage() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Pending</p>
           <p className="mt-1 text-lg font-semibold">{totals.pending.toLocaleString()}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Approved</p>
           <p className="mt-1 text-lg font-semibold">{totals.approved.toLocaleString()}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Paid</p>
           <p className="mt-1 text-lg font-semibold text-primary">{totals.paid.toLocaleString()}</p>
         </div>
       </div>
 
       {composeOpen ? (
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <h2 className="text-sm font-semibold">Create invigilator payment</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Select
@@ -230,7 +230,7 @@ export default function InvigilatorPaymentsPage() {
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -255,7 +255,7 @@ export default function InvigilatorPaymentsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         <ScrollArea className="max-h-[60vh]">
           <Table>

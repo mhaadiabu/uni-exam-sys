@@ -130,7 +130,7 @@ export default function IdCardsPage() {
       ) : null}
 
       {bulkOpen ? (
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <h2 className="text-sm font-semibold">Bulk generate</h2>
           <p className="mt-1 text-[11px] text-muted-foreground">
             Will create cards for {studentsWithoutCard.length} student
@@ -174,7 +174,7 @@ export default function IdCardsPage() {
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -204,7 +204,7 @@ export default function IdCardsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         <ScrollArea className="max-h-[60vh]">
           <Table>

@@ -143,7 +143,7 @@ export default function SeatingPage() {
         description="Generate seating arrangements and download the chart."
       />
 
-      <div className="rounded-md border bg-card p-4 shadow-sm">
+      <div className="rounded-md border bg-card p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Schedule</Label>
@@ -218,7 +218,7 @@ export default function SeatingPage() {
       </div>
 
       {scheduleId ? (
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-2 p-4">
             <div className="flex items-center gap-2">
               <LayoutGrid className="size-4 text-primary" />

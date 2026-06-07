@@ -156,7 +156,7 @@ export default function MarkAttendancePage() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.5fr]">
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center gap-2 p-4">
             <ClipboardList className="size-4 text-primary" />
             <h2 className="text-sm font-semibold">My assignments</h2>
@@ -247,7 +247,7 @@ export default function MarkAttendancePage() {
           )}
         </div>
 
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center justify-between p-4">
             <div>
               <h2 className="text-sm font-semibold">Register</h2>

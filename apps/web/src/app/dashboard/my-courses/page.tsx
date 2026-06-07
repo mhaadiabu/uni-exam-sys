@@ -72,17 +72,17 @@ export default function MyCoursesPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Total courses</p>
           <p className="mt-1 text-lg font-semibold">{courses.length}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Programs</p>
           <p className="mt-1 text-lg font-semibold">
             {new Set(courses.map((c) => c.program?._id).filter(Boolean)).size}
           </p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Roles</p>
           <p className="mt-1 text-lg font-semibold">
             {new Set(courses.map((c) => c.role)).size}
@@ -90,7 +90,7 @@ export default function MyCoursesPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <Input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
@@ -99,7 +99,7 @@ export default function MyCoursesPage() {
         />
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         {courses === undefined ? (
           <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">

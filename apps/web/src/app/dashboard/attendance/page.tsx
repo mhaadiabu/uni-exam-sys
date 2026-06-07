@@ -118,7 +118,7 @@ export default function AttendancePage() {
 
       {summary ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <div className="flex items-center justify-between">
               <p className="text-[11px] uppercase text-muted-foreground">Registers</p>
               <ClipboardList className="size-3.5 text-primary" />
@@ -128,7 +128,7 @@ export default function AttendancePage() {
               {summary.rows.filter((r) => r.status === "finalized").length} finalized
             </p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <div className="flex items-center justify-between">
               <p className="text-[11px] uppercase text-muted-foreground">Present</p>
               <Shield className="size-3.5 text-primary" />
@@ -138,7 +138,7 @@ export default function AttendancePage() {
               {summary.totals.late} late
             </p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <div className="flex items-center justify-between">
               <p className="text-[11px] uppercase text-muted-foreground">Absent</p>
               <Shield className="size-3.5 text-primary" />
@@ -148,7 +148,7 @@ export default function AttendancePage() {
               {summary.totals.excused} excused
             </p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <div className="flex items-center justify-between">
               <p className="text-[11px] uppercase text-muted-foreground">Completion</p>
               <ClipboardList className="size-3.5 text-primary" />
@@ -173,7 +173,7 @@ export default function AttendancePage() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex flex-wrap items-center gap-2 p-3">
             <Input
               value={search}
@@ -274,7 +274,7 @@ export default function AttendancePage() {
           </ScrollArea>
         </div>
 
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center justify-between p-4">
             <div>
               <h2 className="text-sm font-semibold">Register detail</h2>

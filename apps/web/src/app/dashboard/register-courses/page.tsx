@@ -99,17 +99,17 @@ export default function RegisterCoursesPage() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Available</p>
           <p className="mt-1 text-lg font-semibold">{available?.available.length ?? 0}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Registered</p>
           <p className="mt-1 text-lg font-semibold">
             {myRegs.filter((r) => r.status === "registered").length}
           </p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Dropped</p>
           <p className="mt-1 text-lg font-semibold">
             {myRegs.filter((r) => r.status === "dropped").length}
@@ -117,7 +117,7 @@ export default function RegisterCoursesPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <Input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
@@ -127,7 +127,7 @@ export default function RegisterCoursesPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center gap-2 p-4">
             <BookOpen className="size-4 text-primary" />
             <h2 className="text-sm font-semibold">Available courses</h2>
@@ -189,7 +189,7 @@ export default function RegisterCoursesPage() {
           )}
         </div>
 
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <div className="flex items-center gap-2 p-4">
             <h2 className="text-sm font-semibold">My registrations</h2>
           </div>

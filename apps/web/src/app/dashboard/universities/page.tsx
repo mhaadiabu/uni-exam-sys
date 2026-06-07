@@ -202,7 +202,7 @@ export default function UniversitiesPage() {
       />
 
       {showCreate ? (
-        <div className="space-y-3 rounded-md border bg-card p-4 shadow-sm">
+        <div className="space-y-3 rounded-md border bg-card p-4">
           <div className="flex items-center gap-2">
             <Building2 className="size-4 text-primary" />
             <h2 className="text-sm font-semibold">Create university</h2>
@@ -260,7 +260,7 @@ export default function UniversitiesPage() {
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <div className="flex items-center justify-between gap-2 p-4">
           <h2 className="text-sm font-semibold">All universities</h2>
           <Badge variant="secondary">{active.length}</Badge>
@@ -367,7 +367,7 @@ export default function UniversitiesPage() {
         </ScrollArea>
       </div>
 
-      <details className="rounded-md border bg-card shadow-sm group">
+      <details className="rounded-md border bg-card group">
         <summary className="flex cursor-pointer items-center justify-between gap-2 p-4 text-sm font-semibold [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-2">
             <History className="size-4 text-muted-foreground" />

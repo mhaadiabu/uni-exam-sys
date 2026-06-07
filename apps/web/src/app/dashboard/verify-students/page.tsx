@@ -120,21 +120,21 @@ export default function VerifyStudentsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Today</p>
           <p className="mt-1 text-lg font-semibold text-primary">{todayCount}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Total checks</p>
           <p className="mt-1 text-lg font-semibold">{history.length}</p>
         </div>
-        <div className="rounded-md border bg-card p-3 shadow-sm">
+        <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Penalties applied</p>
           <p className="mt-1 text-lg font-semibold">{penaltyCount}</p>
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <div className="p-3">
             <TabsList>
@@ -150,7 +150,7 @@ export default function VerifyStudentsPage() {
           <TabsContent value="verify">
             <div className="grid gap-4 p-4 lg:grid-cols-[1fr_1.2fr]">
               <div className="space-y-3">
-                <div className="flex items-center gap-2 rounded-md border bg-card p-2 shadow-sm">
+                <div className="flex items-center gap-2 rounded-md border bg-card p-2">
                   <Search className="size-4 text-muted-foreground" />
                   <Input
                     autoFocus

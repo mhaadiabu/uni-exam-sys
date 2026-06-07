@@ -151,26 +151,26 @@ export default function FeePaymentsPage() {
 
       {overview ? (
         <div className="grid gap-3 sm:grid-cols-4">
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <p className="text-[11px] uppercase text-muted-foreground">Total students</p>
             <p className="mt-1 text-lg font-semibold">{overview.totalStudents}</p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <p className="text-[11px] uppercase text-muted-foreground">Cleared</p>
             <p className="mt-1 text-lg font-semibold">{overview.cleared}</p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <p className="text-[11px] uppercase text-muted-foreground">Outstanding</p>
             <p className="mt-1 text-lg font-semibold text-destructive">{overview.outstanding}</p>
           </div>
-          <div className="rounded-md border bg-card p-3 shadow-sm">
+          <div className="rounded-md border bg-card p-3">
             <p className="text-[11px] uppercase text-muted-foreground">Total owed</p>
             <p className="mt-1 text-lg font-semibold">{overview.totalOutstanding.toLocaleString()}</p>
           </div>
         </div>
       ) : null}
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -197,7 +197,7 @@ export default function FeePaymentsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <Separator />
           <ScrollArea className="max-h-[60vh]">
             <Table>
@@ -253,7 +253,7 @@ export default function FeePaymentsPage() {
           </ScrollArea>
         </div>
 
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <h2 className="text-sm font-semibold">Update clearance</h2>
           {!editingId ? (
             <p className="mt-2 text-[11px] text-muted-foreground">

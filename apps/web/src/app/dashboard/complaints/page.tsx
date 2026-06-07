@@ -159,7 +159,7 @@ export default function ComplaintsPage() {
       ) : null}
 
       {composeOpen ? (
-        <div className="rounded-md border bg-card p-4 shadow-sm">
+        <div className="rounded-md border bg-card p-4">
           <h2 className="text-sm font-semibold">New complaint</h2>
           <Separator className="my-3" />
           <div className="grid gap-3 md:grid-cols-2">
@@ -238,7 +238,7 @@ export default function ComplaintsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           <ScrollArea className="max-h-[60vh]">
             <Table>
               <TableHeader>
@@ -294,7 +294,7 @@ export default function ComplaintsPage() {
           </ScrollArea>
         </div>
 
-        <div className="rounded-md border bg-card shadow-sm">
+        <div className="rounded-md border bg-card">
           {!active ? (
             <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
               <AlertCircle className="size-3.5" /> Select a complaint to view details.

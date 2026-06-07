@@ -143,7 +143,7 @@ export default function ResultsPage() {
             key={s}
             onClick={() => setStatusFilter(s)}
             className={
-              "rounded-md border bg-card p-3 text-left shadow-sm " +
+              "rounded-md border bg-card p-3 text-left " +
               (statusFilter === s ? "border-primary" : "")
             }
           >
@@ -153,7 +153,7 @@ export default function ResultsPage() {
         ))}
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
             value={search}
@@ -173,7 +173,7 @@ export default function ResultsPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card shadow-sm">
+      <div className="rounded-md border bg-card">
         <Separator />
         <ScrollArea className="max-h-[60vh]">
           <Table>
@@ -265,7 +265,7 @@ export default function ResultsPage() {
         </ScrollArea>
       </div>
 
-      <div className="rounded-md border bg-card p-3 shadow-sm">
+      <div className="rounded-md border bg-card p-3">
         <p className="text-[11px] font-medium">Review note (optional)</p>
         <p className="text-[10px] text-muted-foreground">
           This note is attached to the next decision you make.
