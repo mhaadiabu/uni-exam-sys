@@ -180,6 +180,51 @@ app/
 ### Routes still to build
 - _none — all sidebar routes ship as real pages_
 
+### /people rework (Clerk picker + role reassignment + PLATFORM-tenant fix)
+- `packages/backend/convex/clerkUsers.ts`: `listClerkUsers` now
+  enriches each Clerk user with their existing `users` row (role,
+  full name, email, isActive, universityId/name/code, PLATFORM flag)
+  via two new internal queries
+  (`lookupUsersByExternalIds`, `lookupUniversityNames`). The hoisted
+  return type keeps Convex's type inference intact.
+- `packages/backend/convex/users.ts`:
+  - `listUsers` accepts a new optional `includeAllTenants` arg. A
+    super admin calling it without `universityId` now falls through
+    to a "list every real-tenant user" path so the PLATFORM-tenant
+    isolation that hid university admins is gone.
+  - `updateUserRole` gains a `universityId` arg (super admin only)
+    for cross-tenant transfer, auto-activates inactive users on
+    role change, blocks demoting the last active university admin
+    per tenant, deactivates finance linked records on demotion,
+    and writes the previous/new university ids + reactivation
+    flag into the audit log.
+  - `deactivateUser` blocks deactivating the last active university
+    admin and refuses to deactivate self / other super admins
+    (unless actor is super admin).
+  - New `reactivateUser` mutation for re-enabling inactive users
+    without a role change.
+- `apps/web/src/app/dashboard/people/_components/people-types.ts`:
+  shared `Role`, `ClerkUser`, `UserStatus`, status helpers
+  (`describeStatus`, `canActOn`, `actionLabel`).
+- `apps/web/src/app/dashboard/people/_components/clerk-user-picker.tsx`:
+  full Dialog replacement for the old popover. 300ms debounced
+  search, error/loading/empty states, groups results by status
+  (Available / In this university / Inactive / In another
+  university / You), shows cross-tenant or self-edit gates inline.
+- `apps/web/src/app/dashboard/people/_components/manage-user-dialog.tsx`:
+  single dialog that adapts to the picked Clerk user's status
+  (create / changeRole / transfer / reactivate). Handles lecturer
+  meta, target-university dropdown (super admin), self-edit
+  guard, and surfaces server errors.
+- `apps/web/src/app/dashboard/people/page.tsx`: `UsersTab` no
+  longer builds a Popover+form. It uses the new picker as the
+  primary entry, adds a tenant filter (super admin only) backed
+  by the new `includeAllTenants` arg, keeps the inline table
+  "Change role" for quick edits, gains a "Reactivate" button for
+  inactive rows, and shows university names on the manage
+  dialog's user header.
+- `npx tsc --noEmit` is clean for the web app.
+
 ### Known gaps (deliberate, not blockers)
 - Lecturer evaluations (`evaluate-lecturers`, `lecturer-evals`,
   `my-evaluations`) have no backend yet. Pages render a "coming

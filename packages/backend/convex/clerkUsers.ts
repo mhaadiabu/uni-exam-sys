@@ -23,7 +23,42 @@ const assertCanListClerkUsers = internalQuery({
   },
 });
 
-export { assertCanListClerkUsers };
+const lookupUsersByExternalIds = internalQuery({
+  args: { externalIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    if (args.externalIds.length === 0) {
+      return [];
+    }
+
+    const results = await Promise.all(
+      args.externalIds.map((externalId) =>
+        ctx.db
+          .query("users")
+          .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+          .unique(),
+      ),
+    );
+
+    return results.filter((u): u is NonNullable<typeof u> => u !== null);
+  },
+});
+
+const lookupUniversityNames = internalQuery({
+  args: { universityIds: v.array(v.id("universities")) },
+  handler: async (ctx, args) => {
+    if (args.universityIds.length === 0) {
+      return [];
+    }
+
+    const unique = Array.from(new Set(args.universityIds));
+    const rows = await Promise.all(unique.map((id) => ctx.db.get(id)));
+    return rows
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+      .map((u) => ({ _id: u._id, name: u.name, code: u.code, isPlatform: u.isPlatform }));
+  },
+});
+
+export { assertCanListClerkUsers, lookupUsersByExternalIds, lookupUniversityNames };
 
 export const listClerkUsers = action({
   args: {
@@ -48,22 +83,95 @@ export const listClerkUsers = action({
     }
 
     const response = await clerk.users.getUserList(params);
+    const externalIds = response.data.map((u) => u.id);
 
-    return {
+    const existingUsers =
+      externalIds.length > 0
+        ? await ctx.runQuery(internal.clerkUsers.lookupUsersByExternalIds, {
+            externalIds,
+          })
+        : [];
+
+    const referencedUniversityIds = Array.from(
+      new Set(
+        existingUsers
+          .map((u) => u.universityId)
+          .filter((id): id is NonNullable<typeof id> => Boolean(id)),
+      ),
+    );
+
+    const universitySummaries =
+      referencedUniversityIds.length > 0
+        ? await ctx.runQuery(internal.clerkUsers.lookupUniversityNames, {
+            universityIds: referencedUniversityIds,
+          })
+        : [];
+
+    const universityNameById = new Map(
+      universitySummaries.map((u) => [
+        u._id,
+        { name: u.name, code: u.code, isPlatform: u.isPlatform },
+      ]),
+    );
+
+    const result: {
+      totalCount: number;
+      users: Array<{
+        id: string;
+        firstName: string | null;
+        lastName: string | null;
+        fullName: string;
+        email: string | null;
+        phone: string | null;
+        username: string | null;
+        imageUrl: string;
+        existingUser: {
+          _id: string;
+          role: string;
+          fullName: string;
+          email: string;
+          isActive: boolean;
+          universityId: string;
+          universityName: string | null;
+          universityCode: string | null | undefined;
+          isPlatformUniversity: boolean;
+        } | null;
+      }>;
+    } = {
       totalCount: response.totalCount,
-      users: response.data.map((u) => ({
-        id: u.id,
-        firstName: u.firstName ?? null,
-        lastName: u.lastName ?? null,
-        fullName:
-          [u.firstName, u.lastName].filter(Boolean).join(" ").trim() ||
-          u.username ||
-          u.id,
-        email: u.primaryEmailAddress?.emailAddress ?? null,
-        phone: u.primaryPhoneNumber?.phoneNumber ?? null,
-        username: u.username ?? null,
-        imageUrl: u.imageUrl ?? null,
-      })),
+      users: response.data.map((u) => {
+        const existing = existingUsers.find((eu) => eu.externalId === u.id);
+        const existingUniversity = existing?.universityId
+          ? universityNameById.get(existing.universityId)
+          : undefined;
+        return {
+          id: u.id,
+          firstName: u.firstName ?? null,
+          lastName: u.lastName ?? null,
+          fullName:
+            [u.firstName, u.lastName].filter(Boolean).join(" ").trim() ||
+            u.username ||
+            u.id,
+          email: u.primaryEmailAddress?.emailAddress ?? null,
+          phone: u.primaryPhoneNumber?.phoneNumber ?? null,
+          username: u.username ?? null,
+          imageUrl: u.imageUrl,
+          existingUser: existing
+            ? {
+                _id: existing._id,
+                role: existing.role,
+                fullName: existing.fullName,
+                email: existing.email,
+                isActive: existing.isActive,
+                universityId: existing.universityId,
+                universityName: existingUniversity?.name ?? null,
+                universityCode: existingUniversity?.code ?? null,
+                isPlatformUniversity: existingUniversity?.isPlatform ?? false,
+              }
+            : null,
+        };
+      }),
     };
+    return result;
   },
 });

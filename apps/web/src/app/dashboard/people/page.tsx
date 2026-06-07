@@ -2,7 +2,7 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   Check,
@@ -12,11 +12,10 @@ import {
   Plus,
   Search,
   Trash2,
-  UserCog,
   Upload,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/dashboard/kpi";
@@ -33,7 +32,6 @@ import {
 } from "@uni-exam-sys/ui/components/dialog";
 import { Input } from "@uni-exam-sys/ui/components/input";
 import { Label } from "@uni-exam-sys/ui/components/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@uni-exam-sys/ui/components/popover";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
 import {
@@ -60,7 +58,9 @@ import {
 
 import { formatDate, roleLabel } from "@/lib/utils";
 
-type Role = "super_admin" | "university_admin" | "lecturer" | "student" | "invigilator" | "finance";
+import { ClerkUserPicker } from "./_components/clerk-user-picker";
+import { type ClerkUser, type Role } from "./_components/people-types";
+import { ManageUserDialog } from "./_components/manage-user-dialog";
 
 export default function PeoplePage() {
   const me = useMe();
@@ -687,115 +687,71 @@ function CsvImportCard({
   );
 }
 
-type ClerkUserOption = {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  fullName: string;
-  email: string | null;
-};
-
 function UsersTab() {
   const me = useMe();
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
-  const users = useQuery(
-    api.users.listUsers,
-    me.universityId
-      ? { universityId: me.universityId, role: roleFilter || undefined }
-      : { role: roleFilter || undefined },
-  ) ?? [];
+  const [tenantFilter, setTenantFilter] = useState<string>("all");
+  const universities = useQuery(api.tenants.listUniversities, {}) ?? [];
 
-  const createUser = useMutation(api.users.createUser);
+  const isSuperAdmin = me.role === "super_admin";
+
+  // Resolve the listUsers query args. We branch on the caller's role
+  // and the tenant filter, falling back to the user's own university
+  // for non-super-admins. This sidesteps the PLATFORM-tenant isolation
+  // that would otherwise hide every real-tenant user from a super admin.
+  let users: Array<{
+    _id: Id<"users">;
+    externalId: string;
+    universityId: Id<"universities">;
+    role: Role;
+    fullName: string;
+    email: string;
+    phone?: string;
+    isActive: boolean;
+    failedLoginAttempts: number;
+    lockedUntil?: number;
+    createdAt: number;
+    updatedAt: number;
+  }> = [];
+  if (isSuperAdmin) {
+    users =
+      (useQuery(
+        api.users.listUsers,
+        tenantFilter === "all"
+          ? { includeAllTenants: true, role: roleFilter || undefined }
+          : {
+              universityId: tenantFilter as Id<"universities">,
+              role: roleFilter || undefined,
+            },
+      ) as typeof users) ?? [];
+  } else if (me.universityId) {
+    users =
+      (useQuery(api.users.listUsers, {
+        universityId: me.universityId,
+        role: roleFilter || undefined,
+      }) as typeof users) ?? [];
+  } else {
+    users =
+      (useQuery(
+        api.users.listUsers,
+        { role: roleFilter || undefined },
+      ) as typeof users) ?? [];
+  }
+
   const updateUserRole = useMutation(api.users.updateUserRole);
+  const reactivateUser = useMutation(api.users.reactivateUser);
   const deactivateUser = useMutation(api.users.deactivateUser);
-  const listClerkUsers = useAction(api.clerkUsers.listClerkUsers);
-
-  const [adding, setAdding] = useState(false);
-  const [addRole, setAddRole] = useState<Role | "">("");
-  const [addExternalId, setAddExternalId] = useState("");
-  const [addFullName, setAddFullName] = useState("");
-  const [addEmail, setAddEmail] = useState("");
-  const [addPhone, setAddPhone] = useState("");
-  const [addStaffId, setAddStaffId] = useState("");
-  const [addTitle, setAddTitle] = useState("");
-  const [addDepartment, setAddDepartment] = useState("");
-  const [creatingUser, setCreatingUser] = useState(false);
 
   const [roleChangeUserId, setRoleChangeUserId] = useState<Id<"users"> | "">("");
   const [roleChangeNew, setRoleChangeNew] = useState<Role>("student");
 
   const [confirmDeactivateId, setConfirmDeactivateId] = useState<Id<"users"> | null>(null);
+  const [tableReactivateId, setTableReactivateId] = useState<Id<"users"> | null>(null);
 
-  // Clerk picker state
+  // Clerk picker + manage dialog state
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSearch, setPickerSearch] = useState("");
-  const [pickerResults, setPickerResults] = useState<ClerkUserOption[]>([]);
-  const [pickerLoading, setPickerLoading] = useState(false);
-
-  const existingExternalIds = useMemo(
-    () => new Set(users.map((u) => u.externalId).filter((id): id is string => Boolean(id))),
-    [users],
-  );
-
-  async function refreshPicker() {
-    setPickerLoading(true);
-    try {
-      const result = await listClerkUsers({
-        limit: 50,
-        query: pickerSearch || undefined,
-      });
-      setPickerResults(
-        (result.users as ClerkUserOption[]).filter(
-          (u) => !existingExternalIds.has(u.id),
-        ),
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load Clerk users");
-    } finally {
-      setPickerLoading(false);
-    }
-  }
-
-  async function handleCreate() {
-    if (!addRole || !addExternalId || !addFullName || !addEmail) {
-      toast.error("Role, Clerk user, name, and email are required");
-      return;
-    }
-    setCreatingUser(true);
-    try {
-      const targetUniversityId =
-        addRole === "super_admin"
-          ? undefined
-          : me.role === "super_admin"
-            ? me.universityId ?? undefined
-            : me.universityId;
-      await createUser({
-        universityId: targetUniversityId,
-        role: addRole,
-        externalId: addExternalId,
-        fullName: addFullName,
-        email: addEmail,
-        phone: addPhone || undefined,
-        staffId: addStaffId || undefined,
-        title: addRole === "lecturer" ? addTitle || undefined : undefined,
-        department: addRole === "lecturer" ? addDepartment || undefined : undefined,
-      });
-      toast.success(`${roleLabel(addRole)} created`);
-      setAddRole("");
-      setAddExternalId("");
-      setAddFullName("");
-      setAddEmail("");
-      setAddPhone("");
-      setAddStaffId("");
-      setAddTitle("");
-      setAddDepartment("");
-      setAdding(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create user");
-    } finally {
-      setCreatingUser(false);
-    }
-  }
+  const [pickedClerkUser, setPickedClerkUser] = useState<ClerkUser | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   async function handleUpdateRole() {
     if (!roleChangeUserId) return;
@@ -819,13 +775,32 @@ function UsersTab() {
     }
   }
 
+  async function handleReactivateFromTable() {
+    if (!tableReactivateId) return;
+    try {
+      await reactivateUser({ userId: tableReactivateId });
+      toast.success("User reactivated");
+      setTableReactivateId(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reactivate user");
+    }
+  }
+
+  function openPickerForUser(user: ClerkUser) {
+    setPickedClerkUser(user);
+    setManageOpen(true);
+  }
+
   return (
     <div className="space-y-3">
       <div className="rounded-md border bg-card p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <UserCog className="size-3.5 text-primary" />
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <Search className="size-3.5 text-primary" />
           <h2 className="text-sm font-semibold">Users</h2>
           <Badge variant="secondary">{users.length}</Badge>
+          <p className="ml-1 text-[11px] text-muted-foreground">
+            Search Clerk for any account to add, transfer, or change its role.
+          </p>
         </div>
         <Separator className="mb-3" />
         <div className="flex flex-wrap items-center gap-2">
@@ -849,164 +824,42 @@ function UsersTab() {
               ) : null}
             </SelectContent>
           </Select>
-          <div className="ml-auto flex items-center gap-2">
-            <Popover
-              open={pickerOpen}
-              onOpenChange={(o) => {
-                setPickerOpen(o);
-                if (o) void refreshPicker();
-              }}
+          {isSuperAdmin ? (
+            <Select
+              value={tenantFilter}
+              onValueChange={(v) =>
+                setTenantFilter(!v || v === "all" ? "all" : v)
+              }
             >
-              <PopoverTrigger
-                render={(props) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    {...props}
-                    onClick={() => setPickerOpen(true)}
-                  >
-                    <Search className="mr-1 size-3.5" />
-                    Pick from Clerk
-                  </Button>
-                )}
-              />
-              <PopoverContent className="w-80 p-0" align="end">
-                <div className="border-b p-2">
-                  <Input
-                    autoFocus
-                    value={pickerSearch}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setPickerSearch(e.target.value);
-                      void refreshPicker();
-                    }}
-                    placeholder="Search Clerk users"
-                    className="h-7 text-xs"
-                  />
-                </div>
-                <div className="max-h-72 overflow-y-auto p-1">
-                  {pickerLoading ? (
-                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                      Loading Clerk users...
-                    </p>
-                  ) : pickerResults.length === 0 ? (
-                    <p className="px-2 py-3 text-center text-xs text-muted-foreground">
-                      No matching Clerk users.
-                    </p>
-                  ) : (
-                    pickerResults.map((u) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-muted"
-                        onClick={() => {
-                          setAddExternalId(u.id);
-                          setAddFullName(u.fullName);
-                          setAddEmail(u.email ?? "");
-                          setPickerOpen(false);
-                          setAdding(true);
-                        }}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{u.fullName}</p>
-                          {u.email ? (
-                            <p className="truncate text-muted-foreground">{u.email}</p>
-                          ) : null}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Button size="sm" onClick={() => setAdding((v) => !v)}>
-              <Plus className="mr-1 size-3.5" />
-              Add user
+              <SelectTrigger className="h-7 w-56 text-xs">
+                <SelectValue>
+                  {tenantFilter === "all"
+                    ? "All universities"
+                    : universities.find((u) => u._id === tenantFilter)?.name ??
+                      "University"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All universities</SelectItem>
+                {universities.map((u) => (
+                  <SelectItem key={u._id} value={u._id}>
+                    {u.name}
+                    {u.code ? ` (${u.code})` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+            >
+              <Search className="mr-1 size-3.5" />
+              Pick from Clerk
             </Button>
           </div>
         </div>
-        {adding ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select
-                value={addRole || undefined}
-                onValueChange={(v) => setAddRole(v as Role)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Role">
-                    {addRole ? roleLabel(addRole) : "Role"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {me.role === "super_admin" ? (
-                    <SelectItem value="super_admin">Super admin</SelectItem>
-                  ) : null}
-                  <SelectItem value="university_admin">University admin</SelectItem>
-                  <SelectItem value="lecturer">Lecturer</SelectItem>
-                  <SelectItem value="invigilator">Invigilator</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Clerk user ID</Label>
-              <Input
-                value={addExternalId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddExternalId(e.target.value)}
-                placeholder="user_..."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Full name</Label>
-              <Input
-                value={addFullName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddFullName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={addEmail}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input
-                value={addPhone}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddPhone(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Staff ID (lecturer/invigilator)</Label>
-              <Input
-                value={addStaffId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddStaffId(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Title (lecturer)</Label>
-              <Input
-                value={addTitle}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddTitle(e.target.value)}
-                placeholder="Dr., Prof., etc."
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Department (lecturer)</Label>
-              <Input
-                value={addDepartment}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddDepartment(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end sm:col-span-2 lg:col-span-4">
-              <Button onClick={handleCreate} disabled={creatingUser}>
-                Create user
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       <div className="rounded-md border bg-card">
@@ -1094,7 +947,15 @@ function UsersTab() {
                         >
                           <Trash2 className="size-3" />
                         </Button>
-                      ) : null}
+                      ) : (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => setTableReactivateId(u._id)}
+                        >
+                          Reactivate
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -1114,6 +975,26 @@ function UsersTab() {
         </ScrollArea>
       </div>
 
+      <ClerkUserPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        me={me}
+        currentUniversityId={me.universityId}
+        onPickUser={openPickerForUser}
+      />
+
+      <ManageUserDialog
+        open={manageOpen}
+        onOpenChange={(o) => {
+          setManageOpen(o);
+          if (!o) setPickedClerkUser(null);
+        }}
+        me={me}
+        currentUniversityId={me.universityId}
+        clerkUser={pickedClerkUser}
+        onSuccess={() => setPickerOpen(false)}
+      />
+
       <Dialog
         open={confirmDeactivateId !== null}
         onOpenChange={(open) => !open && setConfirmDeactivateId(null)}
@@ -1122,7 +1003,8 @@ function UsersTab() {
           <DialogHeader>
             <DialogTitle>Deactivate user?</DialogTitle>
             <DialogDescription>
-              The user will lose access to the platform. You can re-enable by changing their role.
+              The user will lose access to the platform. You can re-enable them
+              from the table or via the Clerk picker.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
@@ -1131,6 +1013,29 @@ function UsersTab() {
             </Button>
             <Button variant="destructive" onClick={() => void handleDeactivate()}>
               Deactivate
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={tableReactivateId !== null}
+        onOpenChange={(open) => !open && setTableReactivateId(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reactivate user?</DialogTitle>
+            <DialogDescription>
+              This restores the user&apos;s access without changing their role.
+              For role changes, use the Clerk picker.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTableReactivateId(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleReactivateFromTable()}>
+              Reactivate
             </Button>
           </div>
         </DialogContent>
