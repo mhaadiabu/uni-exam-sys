@@ -6,13 +6,16 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   Building2,
+  Check,
+  Copy,
   History,
   Mail,
+  Pencil,
   Plus,
   RotateCcw,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/dashboard/kpi";
@@ -31,6 +34,7 @@ import { Input } from "@uni-exam-sys/ui/components/input";
 import { Label } from "@uni-exam-sys/ui/components/label";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
+import { Switch } from "@uni-exam-sys/ui/components/switch";
 import {
   Table,
   TableBody,
@@ -39,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@uni-exam-sys/ui/components/table";
+import { cn } from "@uni-exam-sys/ui/lib/utils";
 
 import { formatDate } from "@/lib/utils";
 
@@ -54,12 +59,27 @@ type University = {
   updatedAt: number;
 };
 
+type EditDraft = {
+  name: string;
+  prefix: string;
+  isActive: boolean;
+};
+
+function prefixDisplay(value: string | undefined | null): string {
+  return value ?? "";
+}
+
+function isActiveDisplay(value: boolean): string {
+  return value ? "Active" : "Inactive";
+}
+
 export default function UniversitiesPage() {
   const me = useMe();
   const universities = useQuery(api.tenants.listUniversities, {}) ?? [];
   const deletedUniversities = useQuery(api.tenants.listUniversities, { includeDeleted: true }) ?? [];
   const createUniversity = useMutation(api.bootstrap.createUniversity);
   const updateAllowedEmailDomains = useMutation(api.tenants.updateAllowedEmailDomains);
+  const updateUniversity = useMutation(api.tenants.updateUniversity);
   const softDeleteUniversity = useMutation(api.tenants.softDeleteUniversity);
   const restoreUniversity = useMutation(api.tenants.restoreUniversity);
 
@@ -72,6 +92,14 @@ export default function UniversitiesPage() {
   const [editingId, setEditingId] = useState<Id<"universities"> | null>(null);
   const [editDomains, setEditDomains] = useState("");
   const [savingDomains, setSavingDomains] = useState(false);
+
+  const [editingUniversity, setEditingUniversity] = useState<University | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<{
+    university: University;
+    draft: EditDraft;
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<University | null>(null);
   const [confirmText, setConfirmText] = useState("");
@@ -136,6 +164,76 @@ export default function UniversitiesPage() {
   }
 
   function startEdit(u: University) {
+    setEditingUniversity(u);
+    setEditDraft({
+      name: u.name,
+      prefix: prefixDisplay(u.prefix),
+      isActive: u.isActive,
+    });
+  }
+
+  function closeEdit() {
+    if (savingEdit) return;
+    setEditingUniversity(null);
+    setEditDraft(null);
+  }
+
+  function requestSaveEdit() {
+    if (!editingUniversity || !editDraft) return;
+    const trimmedName = editDraft.name.trim();
+    if (!trimmedName) {
+      toast.error("Name cannot be empty");
+      return;
+    }
+    const cleanedPrefix = editDraft.prefix.trim().toUpperCase().replace(/\s+/g, "");
+    if (cleanedPrefix && !/^[A-Z0-9_-]+$/.test(cleanedPrefix)) {
+      toast.error("Prefix may only contain letters, numbers, hyphens, and underscores");
+      return;
+    }
+    if (cleanedPrefix.length > 16) {
+      toast.error("Prefix is too long (max 16 characters)");
+      return;
+    }
+    const nextPrefix = cleanedPrefix.length === 0 ? null : cleanedPrefix;
+    setPendingEdit({
+      university: editingUniversity,
+      draft: {
+        name: trimmedName,
+        prefix: nextPrefix ?? "",
+        isActive: editDraft.isActive,
+      },
+    });
+  }
+
+  function closeConfirmEdit() {
+    if (savingEdit) return;
+    setPendingEdit(null);
+  }
+
+  async function confirmSaveEdit() {
+    if (!pendingEdit) return;
+    setSavingEdit(true);
+    const { university, draft } = pendingEdit;
+    const cleanedPrefix = draft.prefix.trim();
+    try {
+      await updateUniversity({
+        universityId: university._id,
+        name: draft.name,
+        prefix: cleanedPrefix.length === 0 ? null : cleanedPrefix,
+        isActive: draft.isActive,
+      });
+      toast.success("University updated");
+      setPendingEdit(null);
+      setEditingUniversity(null);
+      setEditDraft(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update university");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  function startEditDomains(u: University) {
     setEditingId(u._id);
     setEditDomains((u.allowedEmailDomains ?? []).join(", "));
   }
@@ -187,6 +285,28 @@ export default function UniversitiesPage() {
 
   const active = universities.filter((u) => !u.deletedAt);
   const deleted = deletedUniversities.filter((u) => u.deletedAt);
+
+  const editChanges = useMemo(() => {
+    if (!pendingEdit) return null;
+    const { university, draft } = pendingEdit;
+    const changes: { label: string; from: string; to: string }[] = [];
+    if (draft.name !== university.name) {
+      changes.push({ label: "Name", from: university.name, to: draft.name });
+    }
+    const fromPrefix = prefixDisplay(university.prefix);
+    const toPrefix = draft.prefix;
+    if (fromPrefix !== toPrefix) {
+      changes.push({ label: "Student ID prefix", from: fromPrefix || "—", to: toPrefix || "—" });
+    }
+    if (draft.isActive !== university.isActive) {
+      changes.push({
+        label: "Status",
+        from: isActiveDisplay(university.isActive),
+        to: isActiveDisplay(draft.isActive),
+      });
+    }
+    return changes;
+  }, [pendingEdit]);
 
   return (
     <div className="space-y-4">
@@ -274,7 +394,7 @@ export default function UniversitiesPage() {
                 <TableHead>Email domains</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-56">Actions</TableHead>
+                <TableHead className="w-64">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -338,6 +458,15 @@ export default function UniversitiesPage() {
                         size="xs"
                         variant="outline"
                         onClick={() => startEdit(u)}
+                        disabled={editingId === u._id}
+                      >
+                        <Pencil className="mr-1 size-3" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={() => startEditDomains(u)}
                         disabled={editingId === u._id}
                       >
                         <Mail className="mr-1 size-3" />
@@ -427,6 +556,170 @@ export default function UniversitiesPage() {
       </details>
 
       <Dialog
+        open={editingUniversity !== null}
+        onOpenChange={(open) => {
+          if (!open) closeEdit();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-4" />
+              Edit {editingUniversity?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Update the university’s display name, student ID prefix, or active state. You’ll
+              be asked to confirm before the change is saved.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingUniversity && editDraft ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editDraft.name}
+                  onChange={(e) =>
+                    setEditDraft({ ...editDraft, name: e.target.value })
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-prefix">
+                  Student ID prefix <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="edit-prefix"
+                  value={editDraft.prefix}
+                  onChange={(e) =>
+                    setEditDraft({
+                      ...editDraft,
+                      prefix: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                    })
+                  }
+                  placeholder="e.g. KNU"
+                  maxLength={16}
+                  className="h-9 text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Letters, numbers, hyphens, and underscores only. Leave blank to remove the
+                  prefix.
+                </p>
+              </div>
+              <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="edit-active" className="text-xs">
+                    Active
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Inactive tenants cannot sign new users in and are hidden from tenant pickers.
+                  </p>
+                </div>
+                <Switch
+                  id="edit-active"
+                  size="sm"
+                  checked={editDraft.isActive}
+                  onCheckedChange={(checked: boolean) =>
+                    setEditDraft({ ...editDraft, isActive: checked })
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={closeEdit} disabled={savingEdit}>
+              Cancel
+            </Button>
+            <Button onClick={requestSaveEdit} disabled={savingEdit}>
+              Review changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingEdit !== null}
+        onOpenChange={(open) => {
+          if (!open) closeConfirmEdit();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="size-4" />
+              Confirm update
+            </DialogTitle>
+            <DialogDescription>
+              The following changes will be saved to{" "}
+              <span className="font-medium text-foreground">{pendingEdit?.university.name}</span>{" "}
+              and recorded in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editChanges && editChanges.length > 0 ? (
+            <div className="space-y-2">
+              {editChanges.map((change) => (
+                <div
+                  key={change.label}
+                  className="rounded-md border bg-muted/20 p-3 text-xs"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {change.label}
+                  </p>
+                  <div className="mt-1.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-muted-foreground">From</p>
+                      <p
+                        className={cn(
+                          "truncate font-mono text-xs",
+                          change.from === "—" && "italic text-muted-foreground",
+                        )}
+                        title={change.from}
+                      >
+                        {change.from}
+                      </p>
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-muted-foreground">To</p>
+                      <p
+                        className={cn(
+                          "truncate font-mono text-xs font-semibold",
+                          change.to === "—" && "italic text-muted-foreground",
+                        )}
+                        title={change.to}
+                      >
+                        {change.to}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+              No fields changed — nothing to save.
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={closeConfirmEdit} disabled={savingEdit}>
+              Back
+            </Button>
+            <Button
+              onClick={() => void confirmSaveEdit()}
+              disabled={savingEdit || !editChanges || editChanges.length === 0}
+            >
+              {savingEdit ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {
           if (!open) closeDelete();
@@ -449,9 +742,23 @@ export default function UniversitiesPage() {
             <div className="space-y-3">
               <div className="rounded-md border bg-muted/30 p-3 text-xs">
                 <p className="text-muted-foreground">Type the name to confirm:</p>
-                <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-                  {confirmDelete.name}
-                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="font-mono text-sm font-semibold text-foreground">
+                    {confirmDelete.name}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(confirmDelete.name);
+                      toast.success("Copied to clipboard");
+                    }}
+                    title="Copy name"
+                  >
+                    <Copy className="size-3" />
+                  </Button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-name">University name</Label>
