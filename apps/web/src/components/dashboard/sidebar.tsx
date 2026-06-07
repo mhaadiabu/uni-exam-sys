@@ -5,6 +5,8 @@ import {
   Building2,
   CalendarClock,
   type LucideIcon,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   CreditCard,
   FileCheck,
@@ -13,7 +15,7 @@ import {
   Home,
   IdCard,
   LayoutGrid,
-  Lock,
+  LogOut,
   Megaphone,
   MessageSquare,
   School,
@@ -28,19 +30,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
 
-import { useClerk } from "@clerk/nextjs";
-
-import { Badge } from "@uni-exam-sys/ui/components/badge";
 import { Button } from "@uni-exam-sys/ui/components/button";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
 import { cn } from "@uni-exam-sys/ui/lib/utils";
 
-import { roleLabel } from "@/lib/utils";
-
 import {
   type AppRole,
-  type SectionDef,
   type SectionId,
   GROUP_LABELS,
   SECTIONS_BY_ROLE,
@@ -83,19 +79,32 @@ const ICONS: Record<SectionId, LucideIcon> = {
   "my-evaluations": MessageSquare,
 };
 
-export function Sidebar({
+export function SidebarNav({
   role,
   userName,
   userEmail,
+  collapsed,
+  onToggleCollapse,
+  onNavClick,
+  modeToggle,
+  avatar,
+  onSignOut,
+  mobile,
 }: {
   role: AppRole;
   userName?: string;
   userEmail?: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onNavClick?: () => void;
+  modeToggle: React.ReactNode;
+  avatar: React.ReactNode;
+  onSignOut: () => void;
+  mobile?: boolean;
 }) {
-  const clerk = useClerk();
   const pathname = usePathname();
   const sections = SECTIONS_BY_ROLE[role];
-  const grouped = sections.reduce<Record<string, SectionDef[]>>(
+  const grouped = sections.reduce<Record<string, typeof sections>>(
     (acc, section) => {
       const list = acc[section.group] ?? (acc[section.group] = []);
       list.push(section);
@@ -103,6 +112,7 @@ export function Sidebar({
     },
     {},
   );
+
   const groupOrder: Array<keyof typeof GROUP_LABELS> = [
     "overview",
     "manage",
@@ -111,25 +121,37 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="hidden h-full w-64 shrink-0 flex-col border-r bg-card/40 backdrop-blur-sm lg:flex">
+    <>
+      {/* Brand */}
       <div className="flex h-14 items-center gap-2 border-b px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground">
             <GraduationCap className="size-4" />
           </span>
-          <span className="font-serif text-sm font-medium">AcademeX</span>
+          <span
+            className={cn(
+              "text-sm font-semibold tracking-tight whitespace-nowrap transition-opacity",
+              collapsed ? "opacity-0 w-0" : "opacity-100",
+            )}
+          >
+            AcademeX
+          </span>
         </Link>
-        <Badge variant="secondary" className="ml-auto text-[10px] uppercase tracking-wider">
-          {roleLabel(role)}
-        </Badge>
+        {!collapsed ? <div className="shrink-0">{modeToggle}</div> : null}
       </div>
-      <ScrollArea className="flex-1 px-2 py-3">
+
+      <ScrollArea className="flex-1 py-4">
         {groupOrder.map((group) => {
           const list = grouped[group];
           if (!list || list.length === 0) return null;
           return (
-            <div key={group} className="mb-4">
-              <p className="px-3 pb-1.5 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div key={group} className="mb-4 px-3">
+              <p
+                className={cn(
+                  "pb-2 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50 transition-opacity",
+                  collapsed ? "opacity-0 h-0 overflow-hidden pb-0" : "opacity-100",
+                )}
+              >
                 {GROUP_LABELS[group]}
               </p>
               <div className="space-y-0.5">
@@ -140,22 +162,25 @@ export function Sidebar({
                     <Link
                       key={section.id}
                       href={section.href as Route}
+                      title={collapsed ? section.label : undefined}
+                      onClick={onNavClick}
                       className={cn(
-                        "flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors",
+                        "flex items-center rounded-md px-2.5 py-2 text-xs transition-colors",
                         isActive
-                          ? "bg-primary/10 font-medium text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          ? "bg-sidebar-primary/10 font-medium text-sidebar-primary"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        collapsed ? "justify-center" : "gap-2.5",
                       )}
                     >
-                      <Icon className="mt-0.5 size-3.5 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate">{section.label}</p>
-                        {section.description ? (
-                          <p className="truncate text-[10px] font-normal text-muted-foreground">
-                            {section.description}
-                          </p>
-                        ) : null}
-                      </div>
+                      <Icon className="size-4 shrink-0" />
+                      <span
+                        className={cn(
+                          "truncate whitespace-nowrap transition-opacity",
+                          collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 flex-1",
+                        )}
+                      >
+                        {section.label}
+                      </span>
                     </Link>
                   );
                 })}
@@ -164,36 +189,84 @@ export function Sidebar({
           );
         })}
       </ScrollArea>
+
       <Separator />
+
+      {/* Footer: user block + controls */}
       <div className="p-3">
-        {userName ? (
-          <p className="truncate px-2 text-xs font-medium">{userName}</p>
-        ) : null}
-        {userEmail ? (
-          <p className="truncate px-2 text-[10px] text-muted-foreground">{userEmail}</p>
-        ) : null}
-        <div className="mt-2 grid grid-cols-2 gap-1">
+        {/* Profile link: avatar + name + email */}
+        <Link
+          href={"/dashboard/profile" as Route}
+          onClick={onNavClick}
+          title={collapsed ? userName ?? "Profile" : undefined}
+          aria-label="Open profile"
+          className={cn(
+            "flex items-center gap-2.5 rounded-md transition-colors hover:bg-sidebar-accent",
+            collapsed ? "justify-center px-0 py-1.5" : "px-2 py-1.5",
+          )}
+        >
+          {avatar}
+          {userName || userEmail ? (
+            <div
+              className={cn(
+                "min-w-0 flex-1 transition-opacity",
+                collapsed ? "hidden opacity-0" : "opacity-100",
+              )}
+            >
+              {userName ? (
+                <p className="truncate text-xs font-medium">{userName}</p>
+              ) : null}
+              {userEmail ? (
+                <p className="truncate text-[10px] text-muted-foreground">{userEmail}</p>
+              ) : null}
+            </div>
+          ) : null}
+        </Link>
+
+        {/* Mode toggle (collapsed) + Sign out */}
+        <div className={cn("mt-1 flex items-center gap-1", collapsed ? "flex-col" : "flex-row")}>
+          {collapsed ? modeToggle : null}
           <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start text-xs"
-            nativeButton={false}
-            render={<Link href={"/dashboard/profile" as Route} />}
+            variant="destructive"
+            size={collapsed ? "icon-sm" : "sm"}
+            onClick={onSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className={cn("w-full text-xs", collapsed ? "" : "justify-center")}
           >
-            <UserCog className="mr-1 size-3" />
-            Profile
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="justify-start text-xs"
-            onClick={() => void clerk.signOut()}
-          >
-            <Lock className="mr-1 size-3" />
-            Sign out
+            <LogOut className="size-3.5" />
+            <span className={cn("ml-1.5", collapsed ? "hidden" : "inline")}>
+              Sign out
+            </span>
           </Button>
         </div>
+
+        {/* Collapse / Expand toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "mt-1 w-full text-xs text-muted-foreground hover:text-foreground",
+            collapsed && "px-0",
+          )}
+          onClick={onToggleCollapse}
+          title={mobile ? "Close menu" : collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {mobile ? (
+            <>
+              <ChevronLeft className="size-4" />
+              <span className={cn("ml-1.5", collapsed ? "hidden" : "inline")}>Close</span>
+            </>
+          ) : collapsed ? (
+            <ChevronRight className="size-4" />
+          ) : (
+            <>
+              <ChevronLeft className="size-4" />
+              <span className="ml-1.5">Collapse</span>
+            </>
+          )}
+        </Button>
       </div>
-    </aside>
+    </>
   );
 }
