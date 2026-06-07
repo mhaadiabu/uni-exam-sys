@@ -169,6 +169,89 @@ export const updateAllowedEmailDomains = mutation({
   },
 });
 
+export const updateUniversity = mutation({
+  args: {
+    universityId: v.id("universities"),
+    name: v.optional(v.string()),
+    prefix: v.optional(v.union(v.string(), v.null())),
+    isActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin"]);
+
+    const university = await ctx.db.get(args.universityId);
+    if (!university) {
+      throw new Error("University not found");
+    }
+    if (isPlatformUniversity(university)) {
+      throw new Error("The platform tenant cannot be edited");
+    }
+    if (university.deletedAt) {
+      throw new Error("Restore the university before editing it");
+    }
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    const patch: Record<string, unknown> = {};
+
+    if (args.name !== undefined) {
+      const trimmed = args.name.trim();
+      if (!trimmed) {
+        throw new Error("Name cannot be empty");
+      }
+      if (trimmed !== university.name) {
+        changes.name = { from: university.name, to: trimmed };
+        patch.name = trimmed;
+      }
+    }
+
+    if (args.prefix !== undefined) {
+      let nextPrefix: string | undefined;
+      if (args.prefix === null) {
+        nextPrefix = undefined;
+      } else {
+        const cleaned = args.prefix.trim().toUpperCase().replace(/\s+/g, "");
+        if (cleaned.length > 0 && !/^[A-Z0-9_-]+$/.test(cleaned)) {
+          throw new Error("Prefix may only contain letters, numbers, hyphens, and underscores");
+        }
+        if (cleaned.length > 16) {
+          throw new Error("Prefix is too long (max 16 characters)");
+        }
+        nextPrefix = cleaned.length === 0 ? undefined : cleaned;
+      }
+      if (nextPrefix !== university.prefix) {
+        changes.prefix = { from: university.prefix ?? null, to: nextPrefix ?? null };
+        patch.prefix = nextPrefix;
+      }
+    }
+
+    if (args.isActive !== undefined && args.isActive !== university.isActive) {
+      changes.isActive = { from: university.isActive, to: args.isActive };
+      patch.isActive = args.isActive;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return args.universityId;
+    }
+
+    const now = Date.now();
+    patch.updatedAt = now;
+    await ctx.db.patch(args.universityId, patch);
+
+    await writeAuditLog(ctx, {
+      action: "university.updated",
+      entityType: "universities",
+      entityId: args.universityId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: args.universityId,
+      context: changes,
+    });
+
+    return args.universityId;
+  },
+});
+
 export const softDeleteUniversity = mutation({
   args: {
     universityId: v.id("universities"),
