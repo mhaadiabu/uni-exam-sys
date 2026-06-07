@@ -140,7 +140,7 @@ export function SidebarNav({
         {!collapsed ? <div className="shrink-0">{modeToggle}</div> : null}
       </div>
 
-      <ScrollArea className="flex-1 py-4">
+      <ScrollArea className="flex-1 min-h-0 py-4">
         {groupOrder.map((group) => {
           const list = grouped[group];
           if (!list || list.length === 0) return null;

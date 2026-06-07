@@ -65,11 +65,11 @@ export function DashboardLayoutShell({ children }: { children: React.ReactNode }
 
   return (
     <MeContext.Provider value={{ me: meWithUniversity }}>
-      <div className="flex min-h-svh">
+      <div className="flex h-svh overflow-hidden">
         {/* Desktop sidebar */}
         <aside
           className={cn(
-            "hidden h-svh shrink-0 flex-col border-r bg-sidebar transition-all duration-200 ease-in-out lg:flex",
+            "hidden h-svh shrink-0 flex-col overflow-hidden border-r bg-sidebar transition-all duration-200 ease-in-out lg:flex",
           )}
           style={{ width: sidebarWidth }}
         >
@@ -85,7 +85,7 @@ export function DashboardLayoutShell({ children }: { children: React.ReactNode }
           />
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto min-h-0">
           {/* Mobile header */}
           <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
             <Button
