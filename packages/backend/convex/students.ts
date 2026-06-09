@@ -336,13 +336,13 @@ export const importStudentsCsv = mutation({
 
       const rawStudentId = row.studentId || row.student_id || row.id;
       const studentId = await applyUniversityPrefix(ctx, universityId, rawStudentId);
-      const indexNumber = row.indexNumber || row.index_number || row.index;
+      const indexNumber = row.indexNumber || row.index_number || row.index || studentId;
       const fullName = row.fullName || row.full_name || row.name;
 
-      if (!studentId || !indexNumber || !fullName) {
+      if (!studentId || !fullName) {
         result.errors.push({
           rowNumber,
-          message: "Required columns missing (studentId, indexNumber, fullName)",
+          message: "Required columns missing (studentId, fullName)",
         });
         continue;
       }

@@ -15,7 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/dashboard/kpi";
@@ -116,7 +116,6 @@ function StudentsTab() {
   const importCsv = useMutation(api.students.importStudentsCsv);
 
   const [newStudentId, setNewStudentId] = useState("");
-  const [newIndex, setNewIndex] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -145,27 +144,50 @@ function StudentsTab() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"students"> | null>(null);
 
+  const [studentIdTouched, setStudentIdTouched] = useState(false);
+
+  const emailLocalPart = newEmail.includes("@") ? newEmail.split("@")[0]?.trim() ?? "" : newEmail.trim();
+  const derivedStudentId = useMemo(() => {
+    if (!emailLocalPart) return "";
+    const prefix = me.university?.prefix?.trim();
+    if (prefix && !emailLocalPart.toUpperCase().startsWith(prefix.toUpperCase())) {
+      return `${prefix}${emailLocalPart}`;
+    }
+    return emailLocalPart;
+  }, [emailLocalPart, me.university?.prefix]);
+
+  useEffect(() => {
+    if (!studentIdTouched && derivedStudentId) {
+      setNewStudentId(derivedStudentId);
+    }
+  }, [derivedStudentId, studentIdTouched]);
+
   function resetForm() {
     setNewStudentId("");
-    setNewIndex("");
+    setStudentIdTouched(false);
     setNewName("");
     setNewEmail("");
     setNewPhone("");
   }
 
   async function handleCreate() {
-    if (!me.universityId || !newStudentId || !newIndex || !newName || !newProgramId) {
-      toast.error("Student ID, index, name, and program are required");
+    const finalStudentId = newStudentId.trim() || derivedStudentId;
+    if (!me.universityId || !finalStudentId || !newName || !newProgramId) {
+      toast.error("Email, name, and program are required");
+      return;
+    }
+    if (!newEmail.trim()) {
+      toast.error("Email is required — it is used to derive the student ID and index number");
       return;
     }
     setCreating(true);
     try {
       await createStudent({
         universityId: me.universityId,
-        studentId: newStudentId,
-        indexNumber: newIndex,
+        studentId: finalStudentId,
+        indexNumber: finalStudentId,
         fullName: newName,
-        email: newEmail || undefined,
+        email: newEmail.trim() || undefined,
         phone: newPhone || undefined,
         programId: newProgramId,
         semester: newSemester,
@@ -245,7 +267,29 @@ function StudentsTab() {
         </div>
         <Separator className="mb-3" />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Email</Label>
+            <Input
+              type="email"
+              required
+              value={newEmail}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
+              placeholder="janedoe@knu.edu.gh"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              The part before “@” becomes the student ID and index number
+              {me.university?.prefix ? ` (prefix “${me.university.prefix}” is prepended)` : ""}.
+            </p>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Full name</Label>
+            <Input
+              value={newName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
+              placeholder="Jane Doe"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
             <Label>Student ID</Label>
             <div className="flex items-center rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring">
               {me.university?.prefix ? (
@@ -255,32 +299,22 @@ function StudentsTab() {
               ) : null}
               <Input
                 value={newStudentId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewStudentId(e.target.value)}
-                placeholder={me.university?.prefix ? "0001" : "STD-0001"}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setStudentIdTouched(true);
+                  setNewStudentId(e.target.value);
+                }}
+                placeholder={derivedStudentId || "Derived from email"}
                 className="h-8 flex-1 border-0 shadow-none focus-visible:ring-0"
               />
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {me.university?.prefix
-                ? `The prefix “${me.university.prefix}” is added automatically. Type only the suffix.`
-                : "No prefix set for this university."}
+              {studentIdTouched
+                ? "Manually edited — change the email to reset."
+                : newEmail
+                  ? `Auto-derived from email: ${derivedStudentId || "—"}`
+                  : "Will be auto-filled once an email is entered."}
+              {" "}Index number is set to the same value.
             </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Index number</Label>
-            <Input
-              value={newIndex}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewIndex(e.target.value)}
-              placeholder="PS/ITC/22/0001"
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Full name</Label>
-            <Input
-              value={newName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-              placeholder="Jane Doe"
-            />
           </div>
           <div className="space-y-1.5">
             <Label>Program</Label>
@@ -333,15 +367,6 @@ function StudentsTab() {
                 <SelectItem value="outstanding">Outstanding</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              value={newEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
-              placeholder="optional"
-            />
           </div>
           <div className="space-y-1.5">
             <Label>Phone</Label>
