@@ -315,6 +315,10 @@ export const syncCurrentUser = mutation({
 
     await attachUserToRoleProfile(ctx, userId, role, universityId, email);
 
+    if (role === "student") {
+      await ensureStudentProfile(ctx, { userId, universityId, email, fullName: identity.name ?? "Unnamed User" });
+    }
+
     await writeAuditLog(ctx, {
       action: "user.synced",
       entityType: "users",
@@ -449,6 +453,15 @@ export const syncUserFromWebhook = internalMutation({
     });
 
     await attachUserToRoleProfile(ctx, userId, role, universityId, args.email);
+
+    if (role === "student") {
+      await ensureStudentProfile(ctx, {
+        userId,
+        universityId,
+        email: args.email,
+        fullName: args.fullName || "Unnamed User",
+      });
+    }
 
     await writeAuditLog(ctx, {
       action: "user.synced",
@@ -601,3 +614,111 @@ export const scopedUniversity = query({
     return await ctx.db.get(scoped);
   },
 });
+
+/**
+ * Idempotently ensure a `students` profile exists for the given user in the given university.
+ *
+ * Creates and returns a new `students` row linked to `userId` when no existing row is present;
+ * otherwise returns the existing student row. The created row uses safe placeholder enrollment
+ * values (e.g., first available program, `semester: 1`, `feeStatus: "outstanding"`).
+ *
+ * @param params.userId - ID of the user to link the student profile to
+ * @param params.universityId - ID of the university where the student should be enrolled
+ * @param params.email - User email used to derive a student identifier (local-part)
+ * @param params.fullName - Full name to store on the student profile
+ * @returns The existing or newly created student document, or `null` if a profile could not be created
+ */
+async function ensureStudentProfile(
+  ctx: MutationCtx,
+  params: {
+    userId: Doc<"users">["_id"];
+    universityId: Doc<"universities">["_id"];
+    email: string;
+    fullName: string;
+  },
+) {
+  const existing = (await ctx.db
+    .query("students")
+    .withIndex("by_university", (q) => q.eq("universityId", params.universityId))
+    .collect())
+    .find((candidate) => candidate.userId === params.userId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const emailLocalPart = params.email.includes("@")
+    ? (params.email.split("@")[0] ?? "").trim()
+    : params.email.trim();
+
+  if (!emailLocalPart) {
+    return null;
+  }
+
+  const university = await ctx.db.get(params.universityId);
+  const prefix = university?.prefix?.trim();
+  const finalStudentId =
+    prefix && !emailLocalPart.toUpperCase().startsWith(prefix.toUpperCase())
+      ? `${prefix}${emailLocalPart}`
+      : emailLocalPart;
+
+  const collision = await ctx.db
+    .query("students")
+    .withIndex("by_university_student_id", (q) =>
+      q.eq("universityId", params.universityId).eq("studentId", finalStudentId),
+    )
+    .unique();
+
+  if (collision) {
+    return null;
+  }
+
+  const programs = await ctx.db
+    .query("programs")
+    .withIndex("by_university", (q) => q.eq("universityId", params.universityId))
+    .collect();
+
+  const program = programs[0];
+  if (!program) {
+    return null;
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const academicYear = month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+
+  const id = await ctx.db.insert("students", {
+    universityId: params.universityId,
+    userId: params.userId,
+    studentId: finalStudentId,
+    indexNumber: finalStudentId,
+    fullName: params.fullName,
+    email: params.email,
+    phone: undefined,
+    programId: program._id,
+    semester: 1,
+    academicYear,
+    feeStatus: "outstanding",
+    outstandingBalance: 0,
+    lateRegistration: false,
+    photoUrl: undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  await writeAuditLog(ctx, {
+    action: "student.auto_enrolled",
+    entityType: "students",
+    entityId: id,
+    actorUserId: params.userId,
+    actorRole: "student",
+    universityId: params.universityId,
+    context: {
+      source: "signup",
+      email: params.email,
+    },
+  });
+
+  return await ctx.db.get(id);
+}
