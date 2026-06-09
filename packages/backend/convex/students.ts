@@ -430,6 +430,7 @@ export const listMyResults = query({
   args: {
     academicYear: v.optional(v.string()),
     semester: v.optional(v.number()),
+    includeUnapproved: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
@@ -451,6 +452,13 @@ export const listMyResults = query({
       .query("courseResults")
       .withIndex("by_student", (q) => q.eq("studentId", student._id))
       .collect();
+
+    // Students only see approved results. Admins can opt in to
+    // viewing every status (used for review/transcript generation).
+    const isAdminViewer = session.user.role === "super_admin" || session.user.role === "university_admin";
+    if (!isAdminViewer && !args.includeUnapproved) {
+      results = results.filter((r) => r.status === "approved");
+    }
 
     if (args.academicYear) {
       results = results.filter((r) => r.academicYear === args.academicYear);

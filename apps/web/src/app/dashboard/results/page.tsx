@@ -232,7 +232,7 @@ export default function ResultsPage() {
                       {formatDateTime(r.updatedAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.status === "submitted" || r.status === "draft" ? (
+                      {r.status === "submitted" ? (
                         <div className="flex justify-end gap-1">
                           <Button
                             size="sm"
@@ -253,7 +253,7 @@ export default function ResultsPage() {
                         </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">
-                          {r.reviewerNote ?? "—"}
+                          {r.reviewerNote ?? (r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Draft — not submitted")}
                         </span>
                       )}
                     </TableCell>
