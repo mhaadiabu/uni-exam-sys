@@ -246,6 +246,18 @@ export default function DashboardHomePage() {
   );
 }
 
+/**
+ * Render a 3-tile KPI grid tailored to the given user role using the provided dashboard data.
+ *
+ * @param role - The active user role (e.g., `"super_admin"`, `"university_admin"`, `"student"`, `"invigilator"`, `"finance"`, `"lecturer"`).
+ * @param superAdmin - Super admin dashboard metrics (total universities, total users, recent audits).
+ * @param admin - University admin dashboard metrics (total students, invigilators, rooms).
+ * @param student - Student dashboard data (timetable, fee status, complaints, auto-enrollment flag).
+ * @param invigilator - Invigilator dashboard data (today's assignments, upcoming assignments, history).
+ * @param finance - Finance dashboard data (clearance totals and payments).
+ * @param lecturer - Lecturer dashboard data (courses count, upcoming exams, result counts).
+ * @returns A React element containing three KPI tiles for the specified role; if the role-specific data is not available, renders a default three-tile grid with zeroed values.
+ */
 function RoleMetrics({
   role,
   superAdmin,

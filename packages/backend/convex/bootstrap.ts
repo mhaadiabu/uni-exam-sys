@@ -616,16 +616,17 @@ export const scopedUniversity = query({
 });
 
 /**
- * Idempotently provision a `students` row for a freshly created user with
- * role=student. Mirrors the public `students.ensureStudentProfileForCurrentUser`
- * mutation but runs as a server-side helper that does not require a session
- * (used by `syncCurrentUser` / `syncUserFromWebhook` while the user record is
- * being created).
+ * Idempotently ensure a `students` profile exists for the given user in the given university.
  *
- * If a row already exists for the user, this is a no-op. The auto-created row
- * uses safe placeholders: program=first program in the university, semester=1,
- * feeStatus=outstanding, lateRegistration=false. An admin is expected to
- * clear fees / set the real program afterwards.
+ * Creates and returns a new `students` row linked to `userId` when no existing row is present;
+ * otherwise returns the existing student row. The created row uses safe placeholder enrollment
+ * values (e.g., first available program, `semester: 1`, `feeStatus: "outstanding"`).
+ *
+ * @param params.userId - ID of the user to link the student profile to
+ * @param params.universityId - ID of the university where the student should be enrolled
+ * @param params.email - User email used to derive a student identifier (local-part)
+ * @param params.fullName - Full name to store on the student profile
+ * @returns The existing or newly created student document, or `null` if a profile could not be created
  */
 async function ensureStudentProfile(
   ctx: MutationCtx,

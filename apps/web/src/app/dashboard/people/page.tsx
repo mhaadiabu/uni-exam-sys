@@ -65,6 +65,15 @@ import { ClerkUserPicker } from "./_components/clerk-user-picker";
 import { type ClerkUser, type Role } from "./_components/people-types";
 import { ManageUserDialog } from "./_components/manage-user-dialog";
 
+/**
+ * Render the People management page used to view and manage students and user roles.
+ *
+ * Renders an access-denied message for non-admin callers; for university or super admins
+ * it renders the page header and tabs for "Students" and "Users & roles".
+ *
+ * @returns The component's JSX: the People management UI for authorized users, or an informational
+ * message for callers who are not university or super admins.
+ */
 export default function PeoplePage() {
   const me = useMe();
 
@@ -99,17 +108,12 @@ export default function PeoplePage() {
 }
 
 /**
- * Render the Students management tab.
+ * Render the Students management tab for administering student records that are
+ * auto-created from signups and optionally back-filled via CSV.
  *
- * Students self-register through Clerk: when a user signs up with an email
- * domain that matches a university's allowed domains, a `students` row is
- * auto-created (idempotently) on first dashboard visit. Admins manage the
- * students that already exist by:
- *   - bulk-importing historical records via CSV
- *   - changing fee status or late-registration approval per row
- *   - deleting accidental/orphaned records
- * There is no manual "add student" form — the registry is fed by signups
- * (and CSV for back-fills).
+ * The tab exposes controls for searching and filtering students, importing a CSV
+ * template, and performing per-student actions: change fee status, toggle
+ * late-registration approval, and delete orphaned/test records.
  *
  * @returns The Students tab UI as a JSX element.
  */
@@ -160,6 +164,11 @@ function StudentsTab() {
     return true;
   });
 
+  /**
+   * Execute the currently queued student action (fee status change or late-registration toggle) and update UI state.
+   *
+   * If there is no pending action this function returns immediately. It sets the action-busy flag, runs the corresponding mutation for the queued action, shows a success toast describing the applied change, clears the pending action on success, shows an error toast on failure, and always resets the action-busy flag when finished.
+   */
   async function runAction() {
     if (!pendingAction) return;
     setActionBusy(true);
@@ -204,6 +213,12 @@ function StudentsTab() {
     }
   }
 
+  /**
+   * Import students from the current CSV content into the caller's university and update UI state and notifications.
+   *
+   * Validates that a university, CSV content, and a default program are present; if not, shows an error toast and aborts.
+   * While running, toggles the `importing` state flag. On success, shows a success toast with the imported count and error count and clears the CSV content. On failure, shows an error toast with the error message when available. Always resets the `importing` flag when finished.
+   */
   async function handleImport() {
     if (!me.universityId || !csvContent || !csvProgramId) {
       toast.error("CSV content and program are required");
@@ -227,6 +242,13 @@ function StudentsTab() {
     }
   }
 
+  /**
+   * Download a CSV template named "students-template.csv" that contains headers and two example student rows.
+   *
+   * The file includes the expected import columns (`studentId`, `indexNumber`, `fullName`, `email`,
+   * `phone`, `semester`, `academicYear`, `feeStatus`, `outstandingBalance`, `lateRegistration`)
+   * and two sample rows demonstrating `cleared` and `outstanding` fee states.
+   */
   function downloadTemplate() {
     const sample = [
       "studentId,indexNumber,fullName,email,phone,semester,academicYear,feeStatus,outstandingBalance,lateRegistration",
@@ -549,6 +571,23 @@ function StudentsTab() {
   );
 }
 
+/**
+ * Render a collapsible card UI for importing students via CSV, including controls for default program/semester/year, a CSV textarea, and Template/Import actions.
+ *
+ * @param csvContent - The current raw CSV text shown in the textarea.
+ * @param setCsvContent - Setter invoked when the CSV textarea content changes.
+ * @param csvProgramId - Currently selected default program id (or `""` when none).
+ * @param setCsvProgramId - Setter invoked when the default program selection changes.
+ * @param csvSemester - Currently selected default semester number.
+ * @param setCsvSemester - Setter invoked when the default semester changes.
+ * @param csvYear - Currently selected default academic year string.
+ * @param setCsvYear - Setter invoked when the default academic year changes.
+ * @param programs - Available programs to choose as the default; each item must contain `_id`, `code`, and `name`.
+ * @param importing - When true, disables the Import button and shows an importing state.
+ * @param onImport - Called to perform the import; expected to return a promise that resolves when import completes.
+ * @param onDownloadTemplate - Called to download the CSV template.
+ * @returns The JSX element for the CSV import card.
+ */
 function CsvImportCard({
   csvContent,
   setCsvContent,
