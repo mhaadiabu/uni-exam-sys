@@ -193,6 +193,20 @@ export const assignLecturerToCourse = mutation({
       },
     });
 
+    if (lecturer.userId) {
+      const courseLabel = `${course.code} — ${course.name}`;
+      const roleLabel = args.role === "primary" ? "Primary" : args.role === "co_lecturer" ? "Co-lecturer" : "Assistant";
+      await ctx.db.insert("notifications", {
+        universityId: scoped,
+        userId: lecturer.userId,
+        roleScope: "lecturer",
+        title: `New course assignment: ${course.code}`,
+        body: `You have been assigned as ${roleLabel} for ${courseLabel} (${args.academicYear} · Semester ${args.semester}).`,
+        readAt: undefined,
+        createdAt: Date.now(),
+      });
+    }
+
     return assignmentId;
   },
 });

@@ -6,20 +6,23 @@ import { useMutation, useQuery } from "convex/react";
 import {
   BookOpen,
   Check,
+  GraduationCap,
   Pencil,
   Plus,
   School,
   Trash2,
+  UserCheck,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
 import { Button } from "@uni-exam-sys/ui/components/button";
+import { Checkbox } from "@uni-exam-sys/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +51,8 @@ import {
 } from "@uni-exam-sys/ui/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@uni-exam-sys/ui/components/tabs";
 
-type Tab = "programs" | "courses" | "rooms";
+type Tab = "programs" | "courses" | "rooms" | "lecturers";
+type CourseRole = "primary" | "co_lecturer" | "assistant";
 
 export default function SetupPage() {
   const me = useMe();
@@ -74,7 +78,7 @@ export default function SetupPage() {
     <div className="space-y-4">
       <PageHeader
         title="Setup"
-        description="Foundation data — programs, courses, and rooms. Build the academic structure before scheduling exams."
+        description="Foundation data — programs, courses, rooms, and lecturer assignments. Build the academic structure before scheduling exams."
       />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
@@ -91,6 +95,10 @@ export default function SetupPage() {
             <School className="mr-1 size-3.5" />
             Rooms
           </TabsTrigger>
+          <TabsTrigger value="lecturers">
+            <GraduationCap className="mr-1 size-3.5" />
+            Lecturer assignments
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="programs">
           <ProgramsPanel />
@@ -100,6 +108,9 @@ export default function SetupPage() {
         </TabsContent>
         <TabsContent value="rooms">
           <RoomsPanel />
+        </TabsContent>
+        <TabsContent value="lecturers">
+          <LecturerAssignmentsPanel />
         </TabsContent>
       </Tabs>
     </div>
@@ -866,6 +877,548 @@ function RoomsPanel() {
             </Button>
             <Button variant="destructive" onClick={() => void handleDelete()}>
               Delete room
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function currentAcademicYear() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+}
+
+function LecturerAssignmentsPanel() {
+  const me = useMe();
+  const lecturers =
+    useQuery(
+      api.lecturers.listLecturerProfiles,
+      me.universityId ? { universityId: me.universityId } : "skip",
+    ) ?? [];
+  const programs =
+    useQuery(
+      api.academics.listPrograms,
+      me.universityId ? { universityId: me.universityId } : "skip",
+    ) ?? [];
+  const courses =
+    useQuery(
+      api.academics.listCourses,
+      me.universityId ? { universityId: me.universityId } : "skip",
+    ) ?? [];
+  const assignments =
+    useQuery(
+      api.lecturers.listCourseAssignments,
+      me.universityId ? { universityId: me.universityId } : "skip",
+    ) ?? [];
+
+  const assignLecturer = useMutation(api.lecturers.assignLecturerToCourse);
+  const removeAssignment = useMutation(api.lecturers.removeLecturerAssignment);
+
+  const [filterProgramId, setFilterProgramId] = useState<Id<"programs"> | "">("");
+  const [courseId, setCourseId] = useState<Id<"courses"> | "">("");
+  const [academicYear, setAcademicYear] = useState(currentAcademicYear());
+  const [semester, setSemester] = useState(1);
+  const [role, setRole] = useState<CourseRole>("primary");
+  const [selectedLecturerIds, setSelectedLecturerIds] = useState<Id<"lecturers">[]>([]);
+  const [lecturerSearch, setLecturerSearch] = useState("");
+  const [assigning, setAssigning] = useState(false);
+
+  const [filterCourseId, setFilterCourseId] = useState<Id<"courses"> | "">("");
+  const [filterLecturerId, setFilterLecturerId] = useState<Id<"lecturers"> | "">("");
+  const [confirmRemoveId, setConfirmRemoveId] = useState<Id<"courseLecturers"> | null>(null);
+
+  const availableCourses = useMemo(() => {
+    if (!filterProgramId) return courses;
+    return courses.filter((c) => c.programId === filterProgramId);
+  }, [courses, filterProgramId]);
+
+  const filteredLecturers = useMemo(() => {
+    const active = lecturers.filter((l) => l.isActive);
+    if (!lecturerSearch.trim()) return active;
+    const term = lecturerSearch.trim().toLowerCase();
+    return active.filter(
+      (l) =>
+        l.fullName.toLowerCase().includes(term) ||
+        l.staffId.toLowerCase().includes(term) ||
+        (l.department?.toLowerCase().includes(term) ?? false),
+    );
+  }, [lecturers, lecturerSearch]);
+
+  const filteredAssignments = useMemo(() => {
+    return assignments
+      .filter((a) => (filterCourseId ? a.courseId === filterCourseId : true))
+      .filter((a) => (filterLecturerId ? a.lecturerId === filterLecturerId : true))
+      .sort((a, b) => {
+        const courseA = a.course?.code ?? "";
+        const courseB = b.course?.code ?? "";
+        if (courseA !== courseB) return courseA.localeCompare(courseB);
+        return a.academicYear.localeCompare(b.academicYear) || a.semester - b.semester;
+      });
+  }, [assignments, filterCourseId, filterLecturerId]);
+
+  const selectedCourse = courseId ? courses.find((c) => c._id === courseId) : null;
+  const programOfSelectedCourse = selectedCourse
+    ? programs.find((p) => p._id === selectedCourse.programId)
+    : null;
+
+  const existingAssignmentsForCourse = courseId
+    ? assignments.filter(
+        (a) =>
+          a.courseId === courseId &&
+          a.academicYear === academicYear &&
+          a.semester === semester,
+      )
+    : [];
+  const alreadyAssignedIds = new Set(existingAssignmentsForCourse.map((a) => a.lecturerId));
+
+  function toggleLecturer(id: Id<"lecturers">) {
+    setSelectedLecturerIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  function resetForm() {
+    setSelectedLecturerIds([]);
+    setLecturerSearch("");
+  }
+
+  async function handleAssign() {
+    if (!me.universityId) {
+      toast.error("No university selected");
+      return;
+    }
+    if (!courseId) {
+      toast.error("Pick a course first");
+      return;
+    }
+    if (selectedLecturerIds.length === 0) {
+      toast.error("Pick at least one lecturer");
+      return;
+    }
+    if (!academicYear.trim()) {
+      toast.error("Academic year is required");
+      return;
+    }
+    setAssigning(true);
+    const targets = selectedLecturerIds.filter((id) => !alreadyAssignedIds.has(id));
+    const skipped = selectedLecturerIds.length - targets.length;
+    let successCount = 0;
+    const errors: string[] = [];
+    try {
+      for (const lecturerId of targets) {
+        try {
+          await assignLecturer({
+            universityId: me.universityId!,
+            lecturerId,
+            courseId,
+            academicYear: academicYear.trim(),
+            semester,
+            role,
+          });
+          successCount += 1;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : "Failed");
+        }
+      }
+      if (successCount > 0) {
+        toast.success(
+          skipped > 0
+            ? `Assigned ${successCount} lecturer(s). ${skipped} skipped (already assigned).`
+            : `Assigned ${successCount} lecturer(s).`,
+        );
+      }
+      if (errors.length > 0) {
+        toast.error(errors[0]);
+      }
+      if (successCount > 0) {
+        resetForm();
+      } else {
+        setSelectedLecturerIds((prev) => prev.filter((id) => !alreadyAssignedIds.has(id)));
+      }
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirmRemoveId) return;
+    try {
+      await removeAssignment({ assignmentId: confirmRemoveId });
+      toast.success("Assignment removed");
+      setConfirmRemoveId(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove assignment");
+    }
+  }
+
+  const roleBadge = (r: CourseRole) => (
+    <Badge variant="secondary" className="text-[10px] capitalize">
+      {r.replace("_", " ")}
+    </Badge>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md border bg-card p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <UserCheck className="size-3.5 text-primary" />
+          <h2 className="text-sm font-semibold">Assign lecturers to a course</h2>
+        </div>
+        <Separator className="mb-3" />
+
+        <div className="grid gap-3 sm:grid-cols-[1fr_2fr_1fr_1fr]">
+          <div className="space-y-1.5">
+            <Label>Filter by program</Label>
+            <Select
+              value={filterProgramId || "all"}
+              onValueChange={(v) => {
+                const next = (v === "all" ? "" : v) as Id<"programs"> | "";
+                setFilterProgramId(next);
+                setCourseId("");
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {filterProgramId
+                    ? programs.find((p) => p._id === filterProgramId)?.code ?? "Program"
+                    : "All programs"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All programs</SelectItem>
+                {programs.map((p) => (
+                  <SelectItem key={p._id} value={p._id}>
+                    {p.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Course</Label>
+            <Select
+              value={courseId || undefined}
+              onValueChange={(v) => setCourseId(v as Id<"courses">)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select course">
+                  {selectedCourse
+                    ? `${selectedCourse.code} — ${selectedCourse.name}`
+                    : "Select course"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availableCourses.length === 0 ? (
+                  <SelectItem value="__none__" disabled>
+                    No courses
+                  </SelectItem>
+                ) : (
+                  availableCourses.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.code} — {c.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Academic year</Label>
+            <Input
+              value={academicYear}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAcademicYear(e.target.value)}
+              placeholder="2024/2025"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Semester</Label>
+            <Select value={String(semester)} onValueChange={(v) => setSemester(Number(v))}>
+              <SelectTrigger>
+                <SelectValue>{`Semester ${semester}`}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    Semester {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[2fr_1fr]">
+          <div className="space-y-1.5">
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as CourseRole)}>
+              <SelectTrigger>
+                <SelectValue>
+                  {role === "primary"
+                    ? "Primary"
+                    : role === "co_lecturer"
+                      ? "Co-lecturer"
+                      : "Assistant"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="primary">Primary</SelectItem>
+                <SelectItem value="co_lecturer">Co-lecturer</SelectItem>
+                <SelectItem value="assistant">Assistant</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Applied to all selected lecturers in this batch.
+            </p>
+          </div>
+          <div className="flex items-end">
+            <Button
+              onClick={() => void handleAssign()}
+              disabled={assigning || !courseId || selectedLecturerIds.length === 0}
+              className="w-full"
+            >
+              <Plus className="mr-1 size-3" />
+              {assigning
+                ? "Assigning…"
+                : `Assign ${selectedLecturerIds.length || ""}`.trim()}
+            </Button>
+          </div>
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <Label className="text-xs">Lecturers</Label>
+              <p className="text-[11px] text-muted-foreground">
+                {selectedCourse
+                  ? `Pick one or more to assign ${selectedCourse.code} (${academicYear} · Sem ${semester})`
+                  : "Pick a course first to enable assignment."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {programOfSelectedCourse ? (
+                <Badge variant="outline" className="text-[10px]">
+                  {programOfSelectedCourse.code}
+                </Badge>
+              ) : null}
+              <Input
+                value={lecturerSearch}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setLecturerSearch(e.target.value)
+                }
+                placeholder="Search by name, staff id, dept…"
+                className="h-7 w-56 text-xs"
+                disabled={!courseId}
+              />
+            </div>
+          </div>
+
+          {!courseId ? (
+            <div className="rounded-md border border-dashed bg-muted/30 px-3 py-6 text-center text-xs text-muted-foreground">
+              Choose a course above to load the lecturer list.
+            </div>
+          ) : filteredLecturers.length === 0 ? (
+            <div className="rounded-md border border-dashed bg-muted/30 px-3 py-6 text-center text-xs text-muted-foreground">
+              No active lecturers in this university.
+            </div>
+          ) : (
+            <ScrollArea className="max-h-72 rounded-md border">
+              <div className="divide-y">
+                {filteredLecturers.map((l) => {
+                  const checked = selectedLecturerIds.includes(l._id);
+                  const already = alreadyAssignedIds.has(l._id);
+                  return (
+                    <label
+                      key={l._id}
+                      className={
+                        "flex cursor-pointer items-center gap-3 px-3 py-2 text-xs transition-colors hover:bg-muted/40 " +
+                        (already ? "opacity-60" : "")
+                      }
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleLecturer(l._id)}
+                        disabled={already}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{l.fullName}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="font-mono">{l.staffId}</span>
+                          {l.department ? ` · ${l.department}` : ""}
+                          {l.title ? ` · ${l.title}` : ""}
+                        </p>
+                      </div>
+                      {already ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          Already assigned
+                        </Badge>
+                      ) : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-md border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">Current assignments</h2>
+            <Badge variant="secondary">{filteredAssignments.length}</Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">Filter:</span>
+            <Select
+              value={filterCourseId || "all"}
+              onValueChange={(v) =>
+                setFilterCourseId((v === "all" ? "" : v) as Id<"courses"> | "")
+              }
+            >
+              <SelectTrigger className="h-7 w-48 text-xs">
+                <SelectValue>
+                  {filterCourseId
+                    ? courses.find((c) => c._id === filterCourseId)?.code ?? "Course"
+                    : "All courses"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All courses</SelectItem>
+                {courses.map((c) => (
+                  <SelectItem key={c._id} value={c._id}>
+                    {c.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterLecturerId || "all"}
+              onValueChange={(v) =>
+                setFilterLecturerId((v === "all" ? "" : v) as Id<"lecturers"> | "")
+              }
+            >
+              <SelectTrigger className="h-7 w-44 text-xs">
+                <SelectValue>
+                  {filterLecturerId
+                    ? lecturers.find((l) => l._id === filterLecturerId)?.fullName ?? "Lecturer"
+                    : "All lecturers"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All lecturers</SelectItem>
+                {lecturers.map((l) => (
+                  <SelectItem key={l._id} value={l._id}>
+                    {l.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filterCourseId || filterLecturerId ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setFilterCourseId("");
+                  setFilterLecturerId("");
+                }}
+              >
+                <X className="mr-1 size-3" /> Clear
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        <Separator />
+        <ScrollArea className="max-h-[55vh]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Course</TableHead>
+                <TableHead>Lecturer</TableHead>
+                <TableHead>Term</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {assignments === undefined ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-0">
+                    <TableSkeleton columns={5} rows={4} />
+                  </TableCell>
+                </TableRow>
+              ) : filteredAssignments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-xs text-muted-foreground">
+                    No assignments yet. Use the form above to assign lecturers to a course.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAssignments.map((a) => (
+                  <TableRow key={a._id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-mono text-xs">{a.course?.code ?? "—"}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {a.course?.name ?? "—"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium">
+                          {a.lecturer?.fullName ?? "—"}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          <span className="font-mono">{a.lecturer?.staffId ?? ""}</span>
+                          {a.lecturer?.department ? ` · ${a.lecturer.department}` : ""}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-[11px] text-muted-foreground">
+                      {a.academicYear} · S{a.semester}
+                    </TableCell>
+                    <TableCell>{roleBadge(a.role as CourseRole)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="xs"
+                        variant="destructive"
+                        onClick={() => setConfirmRemoveId(a._id)}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </div>
+
+      <Dialog
+        open={confirmRemoveId !== null}
+        onOpenChange={(open) => !open && setConfirmRemoveId(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Remove assignment?</DialogTitle>
+            <DialogDescription>
+              The lecturer will no longer be linked to this course for that term and will lose
+              access to upload results.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmRemoveId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void handleRemove()}>
+              Remove assignment
             </Button>
           </div>
         </DialogContent>
