@@ -51,6 +51,14 @@ const RECIPIENT_COUNT_CACHE: Record<RoleScope, string> = {
   super_admin: "Super admins",
 };
 
+/**
+ * Render the Messages page containing the user's inbox, broadcast list, notifications, and compose controls.
+ *
+ * Includes role-restricted compose UI to send direct messages and broadcast announcements (visible to `university_admin` and `super_admin`),
+ * shows recipient counts for broadcasts, and provides tables for inbox, broadcasts, and notifications.
+ *
+ * @returns The React element for the Messages page.
+ */
 export default function MessagesPage() {
   const me = useMe();
   const [recipientId, setRecipientId] = useState<Id<"users"> | "">("");

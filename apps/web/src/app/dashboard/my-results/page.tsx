@@ -26,6 +26,11 @@ import { downloadPdf, type PdfTable } from "@/lib/reports";
 
 const GRADE_POINTS: Record<string, number> = { A: 4.0, B: 3.5, C: 3.0, D: 2.5, E: 2.0, F: 0.0 };
 
+/**
+ * Render the "My Results" page showing a student's approved grades, cumulative GPA, search/filter input, PDF export action, and a scrollable results table. If the current user is not a student, renders an access-restricted message instead.
+ *
+ * @returns The React element for the My Results page.
+ */
 export default function MyResultsPage() {
   const me = useMe();
   const [search, setSearch] = useState("");

@@ -27,6 +27,11 @@ const DIMENSIONS = [
 type DimensionKey = (typeof DIMENSIONS)[number]["key"];
 type Ratings = Record<DimensionKey, number>;
 
+/**
+ * Create a Ratings object with every dimension initialized to zero.
+ *
+ * @returns A `Ratings` object with `teaching`, `content`, `engagement`, `punctuality`, and `fairness` each set to `0`.
+ */
 function emptyRatings(): Ratings {
   return { teaching: 0, content: 0, engagement: 0, punctuality: 0, fairness: 0 };
 }
@@ -35,6 +40,13 @@ type Target = NonNullable<
   ReturnType<typeof useQuery<typeof api.lecturerEvaluations.listMyEvaluationTargets>>
 >[number];
 
+/**
+ * Renders the Evaluate Lecturers page allowing students to submit, edit, and remove anonymous lecturer evaluations.
+ *
+ * Shows a header card, a "Pending evaluations" section with a form per pending target, and an "Already submitted" section listing completed evaluations; non-student users see an informational message instead of the evaluation UI.
+ *
+ * @returns The page's JSX element.
+ */
 export default function EvaluateLecturersPage() {
   const me = useMe();
   const targets = useQuery(api.lecturerEvaluations.listMyEvaluationTargets, {}) ?? [];
@@ -126,6 +138,15 @@ export default function EvaluateLecturersPage() {
   );
 }
 
+/**
+ * Render a form for submitting an anonymous lecturer evaluation for the provided target.
+ *
+ * The form requires a rating for each of five fixed dimensions, accepts an optional comment,
+ * disables submission until all dimensions are rated, and shows success/error toasts on submission.
+ *
+ * @param target - Evaluation target containing identifying information (course, lecturer, academicYear, semester) used when submitting the evaluation
+ * @returns A JSX element rendering the evaluation form that collects five required star ratings and an optional comment and manages submission state and notifications
+ */
 function EvaluationForm({ target }: { target: Target }) {
   const submit = useMutation(api.lecturerEvaluations.submitEvaluation);
   const [ratings, setRatings] = useState<Ratings>(emptyRatings);
@@ -217,6 +238,16 @@ function EvaluationForm({ target }: { target: Target }) {
   );
 }
 
+/**
+ * Render a row for a target's existing evaluation with view, edit, and delete modes.
+ *
+ * While in view mode it displays the averaged rating, submission time, and action buttons.
+ * In edit mode it allows re-rating every required dimension and editing the optional comment.
+ * Saving updates or removing the evaluation are performed via API mutations and surface success/error toasts.
+ *
+ * @param target - Evaluation target containing course, lecturer, academic term, and an `existingEvaluation`
+ * @returns The row element for the target's existing evaluation, or `null` if no existing evaluation is present.
+ */
 function SubmittedEvaluationRow({ target }: { target: Target }) {
   const submit = useMutation(api.lecturerEvaluations.submitEvaluation);
   const remove = useMutation(api.lecturerEvaluations.deleteMyEvaluation);

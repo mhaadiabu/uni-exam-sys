@@ -95,6 +95,16 @@ export default function PeoplePage() {
   );
 }
 
+/**
+ * Render the Students management tab with controls to add, import, filter, edit, and delete students.
+ *
+ * The add-student form auto-derives a student ID from the email local-part and prepends the university
+ * prefix when applicable; manual edits to the student ID stop automatic updates. Creating a student
+ * requires an email, full name, and program; the created record uses the derived/final student ID
+ * as both the student ID and the index number.
+ *
+ * @returns The Students tab UI as a JSX element.
+ */
 function StudentsTab() {
   const me = useMe();
   const programs = useQuery(

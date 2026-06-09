@@ -40,6 +40,13 @@ const DIMENSION_LABELS = [
 
 type DimKey = (typeof DIMENSION_LABELS)[number]["key"];
 
+/**
+ * Renders the administrator-facing Lecturer Evaluations dashboard with KPIs, term filtering, and per-course aggregated metrics.
+ *
+ * Displays university-level KPIs (overall rating, courses, responses, comments), a filter for academic terms, and a table of per-course aggregates that can be expanded to show free-text comments. If the current user is not a university or super admin, renders an access-restricted message instead.
+ *
+ * @returns The dashboard UI as a React element.
+ */
 export default function LecturerEvalsPage() {
   const me = useMe();
   const [filter, setFilter] = useState<{ academicYear: string; semester: number } | "all">("all");
@@ -200,6 +207,21 @@ export default function LecturerEvalsPage() {
   );
 }
 
+/**
+ * Render a table row for a course's aggregated lecturer evaluation with an expandable comments section.
+ *
+ * @param lecturerName - Lecturer's display name
+ * @param department - Lecturer's department or `null` if unavailable
+ * @param courseCode - Course code (e.g., "CS101")
+ * @param courseName - Course title
+ * @param academicYear - Academic year label (e.g., "2024/2025")
+ * @param semester - Semester number
+ * @param count - Number of responses for this course
+ * @param averages - Per-dimension average scores keyed by dimension key
+ * @param overall - Aggregate overall score (floating-point)
+ * @param comments - Array of comment objects; each contains `id`, `comment`, and `createdAt` (timestamp)
+ * @returns A JSX fragment containing the main aggregate table row and, when expanded, a comments row spanning the table columns
+ */
 function AggregateRow({
   lecturerName,
   department,
