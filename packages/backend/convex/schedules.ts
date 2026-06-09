@@ -1,8 +1,16 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 
 import { writeAuditLog } from "./lib/audit";
-import { getScopedUniversityId, requireRole, requireSessionUser, requireUniversityScope } from "./lib/auth";
+import {
+  getScopedUniversityId,
+  requireRole,
+  requireSessionUser,
+  requireUniversityScope,
+} from "./lib/auth";
+import type { AppRole } from "./lib/auth";
 import { rangesOverlap } from "./lib/time";
 
 const scheduleStatusValidator = v.union(
@@ -11,6 +19,56 @@ const scheduleStatusValidator = v.union(
   v.literal("ongoing"),
   v.literal("completed"),
 );
+
+function isUpcoming(examDate: string, now = Date.now()) {
+  const today = new Date(now);
+  const todayKey = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+  return examDate >= todayKey;
+}
+
+async function broadcastTimetableChange(
+  ctx: MutationCtx,
+  args: {
+    universityId: Id<"universities">;
+    examScheduleId: Id<"examSchedules">;
+    title: string;
+    body: string;
+    actorUserId: Id<"users">;
+    actorRole: AppRole;
+  },
+) {
+  const scopes: Array<"student" | "lecturer" | "invigilator"> = [
+    "student",
+    "lecturer",
+    "invigilator",
+  ];
+  const now = Date.now();
+  await Promise.all(
+    scopes.map((roleScope) =>
+      ctx.db.insert("notifications", {
+        universityId: args.universityId,
+        userId: undefined,
+        roleScope,
+        title: args.title,
+        body: args.body,
+        readAt: undefined,
+        createdAt: now,
+      }),
+    ),
+  );
+  await writeAuditLog(ctx, {
+    action: "timetable.notification_fanout",
+    entityType: "examSchedules",
+    entityId: args.examScheduleId,
+    actorUserId: args.actorUserId,
+    actorRole: args.actorRole,
+    universityId: args.universityId,
+    context: {
+      title: args.title,
+      scopes,
+    },
+  });
+}
 
 export const listSchedules = query({
   args: {
@@ -255,6 +313,19 @@ export const createSchedule = mutation({
       },
     });
 
+    if (args.status === "published" && isUpcoming(args.examDate)) {
+      const room = args.roomId ? await ctx.db.get(args.roomId) : null;
+      const roomLabel = room ? `${room.code} (${room.name})` : "TBA";
+      await broadcastTimetableChange(ctx, {
+        universityId: scoped,
+        examScheduleId: scheduleId,
+        title: `New exam scheduled: ${course.code}`,
+        body: `${course.code} — ${course.name} on ${args.examDate}, ${args.startTime}–${args.endTime} at ${roomLabel}.`,
+        actorUserId: session.user._id,
+        actorRole: session.user.role,
+      });
+    }
+
     return scheduleId;
   },
 });
@@ -281,13 +352,29 @@ export const updateSchedule = mutation({
 
     requireUniversityScope(session.user, schedule.universityId);
 
+    const nextExamDate = args.examDate ?? schedule.examDate;
+    const nextStartTime = args.startTime ?? schedule.startTime;
+    const nextEndTime = args.endTime ?? schedule.endTime;
+    const nextRoomId = args.roomId ?? schedule.roomId;
+    const nextInvigilatorId = args.invigilatorId ?? schedule.invigilatorId;
+    const nextStatus = args.status ?? schedule.status;
+
+    const meaningfulChanged =
+      nextExamDate !== schedule.examDate ||
+      nextStartTime !== schedule.startTime ||
+      nextEndTime !== schedule.endTime ||
+      nextRoomId !== schedule.roomId ||
+      nextInvigilatorId !== schedule.invigilatorId;
+
+    const becamePublished = schedule.status !== "published" && nextStatus === "published";
+
     await ctx.db.patch(args.scheduleId, {
-      examDate: args.examDate ?? schedule.examDate,
-      startTime: args.startTime ?? schedule.startTime,
-      endTime: args.endTime ?? schedule.endTime,
-      roomId: args.roomId ?? schedule.roomId,
-      invigilatorId: args.invigilatorId ?? schedule.invigilatorId,
-      status: args.status ?? schedule.status,
+      examDate: nextExamDate,
+      startTime: nextStartTime,
+      endTime: nextEndTime,
+      roomId: nextRoomId,
+      invigilatorId: nextInvigilatorId,
+      status: nextStatus,
       frozenSeating: args.frozenSeating ?? schedule.frozenSeating,
       updatedAt: Date.now(),
     });
@@ -301,8 +388,28 @@ export const updateSchedule = mutation({
       universityId: schedule.universityId,
       context: {
         frozenSeating: args.frozenSeating,
+        meaningfulChanged,
+        becamePublished,
       },
     });
+
+    if (nextStatus === "published" && isUpcoming(nextExamDate) && (meaningfulChanged || becamePublished)) {
+      const [course, room] = await Promise.all([
+        ctx.db.get(schedule.courseId),
+        nextRoomId ? ctx.db.get(nextRoomId) : Promise.resolve(null),
+      ]);
+      const courseLabel = course ? `${course.code} — ${course.name}` : "Exam";
+      const roomLabel = room ? `${room.code} (${room.name})` : "TBA";
+      const titleSuffix = becamePublished && !meaningfulChanged ? "now published" : "updated";
+      await broadcastTimetableChange(ctx, {
+        universityId: schedule.universityId,
+        examScheduleId: args.scheduleId,
+        title: `Exam schedule ${titleSuffix}: ${course?.code ?? "—"}`,
+        body: `${courseLabel} on ${nextExamDate}, ${nextStartTime}–${nextEndTime} at ${roomLabel}.`,
+        actorUserId: session.user._id,
+        actorRole: session.user.role,
+      });
+    }
 
     return args.scheduleId;
   },
