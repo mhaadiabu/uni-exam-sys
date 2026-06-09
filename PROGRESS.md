@@ -233,3 +233,81 @@ app/
 - Backend `npx tsc` fails on a pre-existing missing
   `@types/node` config error in `packages/backend/tsconfig.json`
   — unrelated to this work. Web `npx tsc --noEmit` is clean.
+
+## 2025-06-09 — Auto-register students on signup
+
+### Why
+The student registry was fed manually: admins typed an email and a
+name into the `/people` "Add student" form (or CSV-imported
+historical records), and the row sat with `userId: null` until the
+student happened to sign up with that same email — at which point
+`bootstrap.attachUserToRoleProfile` patched in the link. That broke
+the moment we had any meaningful volume: a 10k-student intake would
+have meant 10k manual rows. It also produced a broken "I signed in
+but my dashboard says 'Student profile not found'" state for any
+student who self-registered with a valid university email before
+the admin got around to creating their row.
+
+### What changed
+- **Auto-create on signup.** `bootstrap.syncCurrentUser` and
+  `bootstrap.syncUserFromWebhook` now call a new server-side helper
+  `ensureStudentProfile` immediately after the `users` row is
+  created for a `role === "student"`. The helper is idempotent:
+  if a row already exists for the user, it returns it. Otherwise
+  it derives a `studentId`/`indexNumber` from the email local-part
+  (+ university prefix) and inserts a placeholder row with
+  `feeStatus: "outstanding"`, `lateRegistration: false`,
+  `semester: 1`, and the first program in the university. The same
+  logic is exposed as a public mutation
+  `students.ensureStudentProfileForCurrentUser` for retry paths.
+- **Dedicated status mutations.** New mutations
+  `students.setStudentFeeStatus` and
+  `students.setStudentLateRegistration` replace the "open the edit
+  row, change a select, save" flow. They short-circuit on no-op
+  transitions and write audit logs that record the previous value
+  (`student.fee_status_changed` and
+  `student.late_registration_changed`).
+- **Soft-fail student queries.** `students.getStudentDashboard`
+  no longer throws on a missing profile; it returns
+  `{ student: null, … }`. The student-dashboard home page was
+  already null-safe.
+- **`/people` UI rewrite.** The "Add student" card is gone. The
+  Students tab is now: an info banner explaining the auto-register
+  flow, the existing CSV import (with a "Download template" button),
+  and a list with quick-action buttons per row:
+  - **Mark cleared** / **Mark outstanding** (fee toggle)
+  - **Approve late reg** / **Revoke late reg** (visible only for
+    students with outstanding fees)
+  - **Delete** (kept; only really for orphaned/test rows)
+  A confirm dialog stands in for the previous "click pencil, edit,
+  save" loop. A fee-status filter pill is added to the search row
+  alongside the program filter, and two summary badges
+  ("X outstanding", "X late-reg") sit next to the count.
+- **Auto-enrolled banner on the student dashboard.** The home
+  page now reads the new `isAutoEnrolled: boolean` on
+  `dashboard.studentDashboard` (true when `createdAt === updatedAt`
+  — i.e. the row was just auto-created and an admin has not yet
+  touched it) and shows a soft info card explaining that the
+  profile is a placeholder.
+
+### Files touched
+- `packages/backend/convex/bootstrap.ts` — call
+  `ensureStudentProfile` from both `syncCurrentUser` and
+  `syncUserFromWebhook`; add the helper.
+- `packages/backend/convex/students.ts` — add
+  `setStudentFeeStatus`, `setStudentLateRegistration`,
+  `ensureStudentProfileForCurrentUser`; soften
+  `getStudentDashboard`.
+- `packages/backend/convex/dashboard.ts` — `studentDashboard`
+  returns `isAutoEnrolled`.
+- `apps/web/src/app/dashboard/people/page.tsx` — rewrite
+  `StudentsTab` and `CsvImportCard`; add fee-filter and per-row
+  status action buttons; remove the manual add-student card.
+- `apps/web/src/app/dashboard/page.tsx` — show the auto-enrolled
+  banner when applicable.
+
+### Verification
+- `npx tsc --noEmit` is clean for both `apps/web` and
+  `packages/backend/convex`. (The workspace-wide `bun run
+  check-types` still fails on a pre-existing
+  `@uni-exam-sys/ui` `@types/node` config issue — unrelated.)

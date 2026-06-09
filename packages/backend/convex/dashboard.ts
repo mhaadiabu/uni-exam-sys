@@ -243,6 +243,7 @@ export const studentDashboard = query({
       timetable,
       complaints,
       idCard,
+      isAutoEnrolled: student.createdAt === student.updatedAt,
     };
   },
 });

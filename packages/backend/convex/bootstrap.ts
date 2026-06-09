@@ -315,6 +315,10 @@ export const syncCurrentUser = mutation({
 
     await attachUserToRoleProfile(ctx, userId, role, universityId, email);
 
+    if (role === "student") {
+      await ensureStudentProfile(ctx, { userId, universityId, email, fullName: identity.name ?? "Unnamed User" });
+    }
+
     await writeAuditLog(ctx, {
       action: "user.synced",
       entityType: "users",
@@ -449,6 +453,15 @@ export const syncUserFromWebhook = internalMutation({
     });
 
     await attachUserToRoleProfile(ctx, userId, role, universityId, args.email);
+
+    if (role === "student") {
+      await ensureStudentProfile(ctx, {
+        userId,
+        universityId,
+        email: args.email,
+        fullName: args.fullName || "Unnamed User",
+      });
+    }
 
     await writeAuditLog(ctx, {
       action: "user.synced",
@@ -601,3 +614,110 @@ export const scopedUniversity = query({
     return await ctx.db.get(scoped);
   },
 });
+
+/**
+ * Idempotently provision a `students` row for a freshly created user with
+ * role=student. Mirrors the public `students.ensureStudentProfileForCurrentUser`
+ * mutation but runs as a server-side helper that does not require a session
+ * (used by `syncCurrentUser` / `syncUserFromWebhook` while the user record is
+ * being created).
+ *
+ * If a row already exists for the user, this is a no-op. The auto-created row
+ * uses safe placeholders: program=first program in the university, semester=1,
+ * feeStatus=outstanding, lateRegistration=false. An admin is expected to
+ * clear fees / set the real program afterwards.
+ */
+async function ensureStudentProfile(
+  ctx: MutationCtx,
+  params: {
+    userId: Doc<"users">["_id"];
+    universityId: Doc<"universities">["_id"];
+    email: string;
+    fullName: string;
+  },
+) {
+  const existing = (await ctx.db
+    .query("students")
+    .withIndex("by_university", (q) => q.eq("universityId", params.universityId))
+    .collect())
+    .find((candidate) => candidate.userId === params.userId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const emailLocalPart = params.email.includes("@")
+    ? (params.email.split("@")[0] ?? "").trim()
+    : params.email.trim();
+
+  if (!emailLocalPart) {
+    return null;
+  }
+
+  const university = await ctx.db.get(params.universityId);
+  const prefix = university?.prefix?.trim();
+  const finalStudentId =
+    prefix && !emailLocalPart.toUpperCase().startsWith(prefix.toUpperCase())
+      ? `${prefix}${emailLocalPart}`
+      : emailLocalPart;
+
+  const collision = await ctx.db
+    .query("students")
+    .withIndex("by_university_student_id", (q) =>
+      q.eq("universityId", params.universityId).eq("studentId", finalStudentId),
+    )
+    .unique();
+
+  if (collision) {
+    return null;
+  }
+
+  const programs = await ctx.db
+    .query("programs")
+    .withIndex("by_university", (q) => q.eq("universityId", params.universityId))
+    .collect();
+
+  const program = programs[0];
+  if (!program) {
+    return null;
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  const academicYear = month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+
+  const id = await ctx.db.insert("students", {
+    universityId: params.universityId,
+    userId: params.userId,
+    studentId: finalStudentId,
+    indexNumber: finalStudentId,
+    fullName: params.fullName,
+    email: params.email,
+    phone: undefined,
+    programId: program._id,
+    semester: 1,
+    academicYear,
+    feeStatus: "outstanding",
+    outstandingBalance: 0,
+    lateRegistration: false,
+    photoUrl: undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  await writeAuditLog(ctx, {
+    action: "student.auto_enrolled",
+    entityType: "students",
+    entityId: id,
+    actorUserId: params.userId,
+    actorRole: "student",
+    universityId: params.universityId,
+    context: {
+      source: "signup",
+      email: params.email,
+    },
+  });
+
+  return await ctx.db.get(id);
+}

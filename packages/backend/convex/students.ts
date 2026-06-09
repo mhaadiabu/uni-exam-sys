@@ -75,7 +75,13 @@ export const getStudentDashboard = query({
 
     const student = (await ctx.db.query("students").collect()).find((row) => row.userId === userId);
     if (!student) {
-      throw new Error("Student profile not found");
+      return {
+        student: null,
+        program: null,
+        idCard: null,
+        complaints: [],
+        timetable: [],
+      };
     }
 
     requireUniversityScope(session.user, student.universityId);
@@ -302,6 +308,219 @@ export const deleteStudent = mutation({
     });
 
     return args.studentDocId;
+  },
+});
+
+export const setStudentFeeStatus = mutation({
+  args: {
+    studentDocId: v.id("students"),
+    feeStatus: feeStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin", "university_admin", "finance"]);
+
+    const existing = await ctx.db.get(args.studentDocId);
+    if (!existing) {
+      throw new Error("Student not found");
+    }
+
+    requireUniversityScope(session.user, existing.universityId);
+
+    if (existing.feeStatus === args.feeStatus) {
+      return args.studentDocId;
+    }
+
+    const previousStatus = existing.feeStatus;
+    await ctx.db.patch(args.studentDocId, {
+      feeStatus: args.feeStatus,
+      updatedAt: Date.now(),
+    });
+
+    await writeAuditLog(ctx, {
+      action: "student.fee_status_changed",
+      entityType: "students",
+      entityId: args.studentDocId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: existing.universityId,
+      context: {
+        from: previousStatus,
+        to: args.feeStatus,
+      },
+    });
+
+    return args.studentDocId;
+  },
+});
+
+export const setStudentLateRegistration = mutation({
+  args: {
+    studentDocId: v.id("students"),
+    lateRegistration: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const session = await requireSessionUser(ctx);
+    requireRole(session.user, ["super_admin", "university_admin"]);
+
+    const existing = await ctx.db.get(args.studentDocId);
+    if (!existing) {
+      throw new Error("Student not found");
+    }
+
+    requireUniversityScope(session.user, existing.universityId);
+
+    if (existing.lateRegistration === args.lateRegistration) {
+      return args.studentDocId;
+    }
+
+    const previousValue = existing.lateRegistration;
+    await ctx.db.patch(args.studentDocId, {
+      lateRegistration: args.lateRegistration,
+      updatedAt: Date.now(),
+    });
+
+    await writeAuditLog(ctx, {
+      action: "student.late_registration_changed",
+      entityType: "students",
+      entityId: args.studentDocId,
+      actorUserId: session.user._id,
+      actorRole: session.user.role,
+      universityId: existing.universityId,
+      context: {
+        from: previousValue,
+        to: args.lateRegistration,
+      },
+    });
+
+    return args.studentDocId;
+  },
+});
+
+/**
+ * Idempotently ensure that the currently signed-in user (a student) has
+ * a `students` row linked to their user. If one already exists it is
+ * returned as-is. Otherwise a placeholder row is created with the lowest-
+ * impact defaults so the student dashboard never throws:
+ *   - programId: first program in the university (or fails loudly)
+ *   - semester: 1
+ *   - academicYear: current year window
+ *   - feeStatus: "outstanding" (admin must clear)
+ *   - lateRegistration: false
+ *   - studentId / indexNumber: derived from the email local-part + university prefix
+ *
+ * The mutation is intentionally a no-op for non-student roles and for
+ * users with no matched university.
+ */
+export const ensureStudentProfileForCurrentUser = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const session = await requireSessionUser(ctx);
+    const sessionUser = session.user;
+
+    if (sessionUser.role !== "student") {
+      return { student: null, created: false };
+    }
+
+    const universityId = sessionUser.universityId;
+    if (!universityId) {
+      return { student: null, created: false };
+    }
+
+    const existing = (await ctx.db
+      .query("students")
+      .withIndex("by_university", (q) => q.eq("universityId", universityId))
+      .collect())
+      .find((candidate) => candidate.userId === sessionUser._id);
+
+    if (existing) {
+      return { student: existing, created: false };
+    }
+
+    const email = sessionUser.email;
+    const emailLocalPart = email.includes("@")
+      ? (email.split("@")[0] ?? "").trim()
+      : email.trim();
+
+    if (!emailLocalPart) {
+      throw new Error("Cannot derive a student ID from your account email");
+    }
+
+    const university = await ctx.db.get(universityId);
+    const prefix = university?.prefix?.trim();
+    const finalStudentId = prefix && !emailLocalPart.toUpperCase().startsWith(prefix.toUpperCase())
+      ? `${prefix}${emailLocalPart}`
+      : emailLocalPart;
+
+    const collision = await ctx.db
+      .query("students")
+      .withIndex("by_university_student_id", (q) =>
+        q.eq("universityId", universityId).eq("studentId", finalStudentId),
+      )
+      .unique();
+
+    if (collision) {
+      throw new Error(
+        `A student record with ID "${finalStudentId}" already exists in this university. ` +
+          `Please ask your admin to merge or rename it.`,
+      );
+    }
+
+    const programs = await ctx.db
+      .query("programs")
+      .withIndex("by_university", (q) => q.eq("universityId", universityId))
+      .collect();
+
+    const program = programs[0];
+    if (!program) {
+      throw new Error(
+        "Your university has no programs configured. Ask your admin to set up at least one program before signing in.",
+      );
+    }
+
+    const academicYear = (() => {
+      const now = new Date();
+      const year = now.getUTCFullYear();
+      const month = now.getUTCMonth() + 1;
+      return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+    })();
+
+    const now = Date.now();
+    const studentId = await ctx.db.insert("students", {
+      universityId,
+      userId: sessionUser._id,
+      studentId: finalStudentId,
+      indexNumber: finalStudentId,
+      fullName: sessionUser.fullName,
+      email,
+      phone: sessionUser.phone ?? undefined,
+      programId: program._id,
+      semester: 1,
+      academicYear,
+      feeStatus: "outstanding",
+      outstandingBalance: 0,
+      lateRegistration: false,
+      photoUrl: undefined,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await writeAuditLog(ctx, {
+      action: "student.auto_enrolled",
+      entityType: "students",
+      entityId: studentId,
+      actorUserId: sessionUser._id,
+      actorRole: sessionUser.role,
+      universityId,
+      context: {
+        source: "signup",
+        email,
+        matchedEmailDomain: email.split("@")[1] ?? null,
+      },
+    });
+
+    const row = await ctx.db.get(studentId);
+    return { student: row, created: true };
   },
 });
 

@@ -10,6 +10,7 @@ import {
   CreditCard,
   FileText,
   GraduationCap,
+  Info,
   LayoutGrid,
   Users,
   Wallet,
@@ -119,6 +120,20 @@ export default function DashboardHomePage() {
           {me.university ? ` · ${me.university.name}` : ""}
         </p>
       </div>
+
+      {me.role === "student" && studentDashboard?.isAutoEnrolled ? (
+        <div className="flex items-start gap-2 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 text-xs">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <div>
+            <p className="font-medium text-foreground">Your profile was created automatically.</p>
+            <p className="mt-0.5 text-muted-foreground">
+              You&apos;re enrolled as a placeholder until your university admin sets your program,
+              semester, and fee status. You won&apos;t be able to register for courses until your
+              fees are cleared or late registration is approved.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <RoleMetrics
         role={me.role}
@@ -243,7 +258,7 @@ function RoleMetrics({
   role: string;
   superAdmin: { totalUniversities: number; totalUsers: number; latestAudit: unknown[] } | null | undefined;
   admin: { metrics: { totalStudents: number; totalInvigilators: number; totalRooms: number } } | null | undefined;
-  student: { timetable: unknown[]; feeStatus: { outstandingBalance: number }; complaints: unknown[] } | null | undefined;
+  student: { timetable: unknown[]; feeStatus: { outstandingBalance: number }; complaints: unknown[]; isAutoEnrolled: boolean } | null | undefined;
   invigilator: { todayAssignments: unknown[]; upcomingAssignments: unknown[]; history: unknown[] } | null | undefined;
   finance: { clearance: { cleared: number; outstanding: number; totalStudents: number }; payments: unknown[] } | null | undefined;
   lecturer: { coursesCount: number; upcomingExams: unknown[]; resultCounts: { draft: number; submitted: number } } | null | undefined;

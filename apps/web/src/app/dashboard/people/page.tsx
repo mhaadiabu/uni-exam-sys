@@ -8,14 +8,17 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  Pencil,
-  Plus,
+  Clock,
+  Download,
+  Info,
   Search,
   Trash2,
   Upload,
+  Wallet,
   X,
+  XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/dashboard/kpi";
@@ -96,12 +99,17 @@ export default function PeoplePage() {
 }
 
 /**
- * Render the Students management tab with controls to add, import, filter, edit, and delete students.
+ * Render the Students management tab.
  *
- * The add-student form auto-derives a student ID from the email local-part and prepends the university
- * prefix when applicable; manual edits to the student ID stop automatic updates. Creating a student
- * requires an email, full name, and program; the created record uses the derived/final student ID
- * as both the student ID and the index number.
+ * Students self-register through Clerk: when a user signs up with an email
+ * domain that matches a university's allowed domains, a `students` row is
+ * auto-created (idempotently) on first dashboard visit. Admins manage the
+ * students that already exist by:
+ *   - bulk-importing historical records via CSV
+ *   - changing fee status or late-registration approval per row
+ *   - deleting accidental/orphaned records
+ * There is no manual "add student" form — the registry is fed by signups
+ * (and CSV for back-fills).
  *
  * @returns The Students tab UI as a JSX element.
  */
@@ -113,6 +121,7 @@ function StudentsTab() {
   ) ?? [];
   const [filterProgram, setFilterProgram] = useState<Id<"programs"> | "">("");
   const [search, setSearch] = useState("");
+  const [feeFilter, setFeeFilter] = useState<"all" | "cleared" | "outstanding">("all");
   const students = useQuery(
     api.students.listStudents,
     me.universityId
@@ -120,31 +129,10 @@ function StudentsTab() {
       : "skip",
   ) ?? [];
 
-  const createStudent = useMutation(api.students.createStudent);
-  const updateStudent = useMutation(api.students.updateStudent);
+  const setFeeStatus = useMutation(api.students.setStudentFeeStatus);
+  const setLateReg = useMutation(api.students.setStudentLateRegistration);
   const deleteStudent = useMutation(api.students.deleteStudent);
   const importCsv = useMutation(api.students.importStudentsCsv);
-
-  const [newStudentId, setNewStudentId] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [newProgramId, setNewProgramId] = useState<Id<"programs"> | "">("");
-  const [newSemester, setNewSemester] = useState(1);
-  const [newYear, setNewYear] = useState("2025/2026");
-  const [newFeeStatus, setNewFeeStatus] = useState<"cleared" | "outstanding">("outstanding");
-  const [newBalance, setNewBalance] = useState(0);
-  const [newLateReg, setNewLateReg] = useState(false);
-  const [creating, setCreating] = useState(false);
-
-  const [editingId, setEditingId] = useState<Id<"students"> | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editSemester, setEditSemester] = useState(1);
-  const [editFeeStatus, setEditFeeStatus] = useState<"cleared" | "outstanding">("outstanding");
-  const [editBalance, setEditBalance] = useState(0);
-  const [editLateReg, setEditLateReg] = useState(false);
 
   const [csvContent, setCsvContent] = useState("");
   const [csvProgramId, setCsvProgramId] = useState<Id<"programs"> | "">("");
@@ -153,84 +141,55 @@ function StudentsTab() {
   const [importing, setImporting] = useState(false);
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<Id<"students"> | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    studentId: Id<"students">;
+    kind: "fee";
+    nextStatus: "cleared" | "outstanding";
+    currentFullName: string;
+  } | {
+    studentId: Id<"students">;
+    kind: "late";
+    nextValue: boolean;
+    currentFullName: string;
+  } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
-  const [studentIdTouched, setStudentIdTouched] = useState(false);
+  const filteredStudents = students.filter((s) => {
+    if (feeFilter === "cleared" && s.feeStatus !== "cleared") return false;
+    if (feeFilter === "outstanding" && s.feeStatus !== "outstanding") return false;
+    return true;
+  });
 
-  const emailLocalPart = newEmail.includes("@") ? newEmail.split("@")[0]?.trim() ?? "" : newEmail.trim();
-  const derivedStudentId = useMemo(() => {
-    if (!emailLocalPart) return "";
-    const prefix = me.university?.prefix?.trim();
-    if (prefix && !emailLocalPart.toUpperCase().startsWith(prefix.toUpperCase())) {
-      return `${prefix}${emailLocalPart}`;
-    }
-    return emailLocalPart;
-  }, [emailLocalPart, me.university?.prefix]);
-
-  useEffect(() => {
-    if (!studentIdTouched && derivedStudentId) {
-      setNewStudentId(derivedStudentId);
-    }
-  }, [derivedStudentId, studentIdTouched]);
-
-  function resetForm() {
-    setNewStudentId("");
-    setStudentIdTouched(false);
-    setNewName("");
-    setNewEmail("");
-    setNewPhone("");
-  }
-
-  async function handleCreate() {
-    const finalStudentId = newStudentId.trim() || derivedStudentId;
-    if (!me.universityId || !finalStudentId || !newName || !newProgramId) {
-      toast.error("Email, name, and program are required");
-      return;
-    }
-    if (!newEmail.trim()) {
-      toast.error("Email is required — it is used to derive the student ID and index number");
-      return;
-    }
-    setCreating(true);
+  async function runAction() {
+    if (!pendingAction) return;
+    setActionBusy(true);
     try {
-      await createStudent({
-        universityId: me.universityId,
-        studentId: finalStudentId,
-        indexNumber: finalStudentId,
-        fullName: newName,
-        email: newEmail.trim() || undefined,
-        phone: newPhone || undefined,
-        programId: newProgramId,
-        semester: newSemester,
-        academicYear: newYear,
-        feeStatus: newFeeStatus,
-        outstandingBalance: newBalance,
-        lateRegistration: newLateReg,
-      });
-      toast.success("Student created");
-      resetForm();
+      if (pendingAction.kind === "fee") {
+        await setFeeStatus({
+          studentDocId: pendingAction.studentId,
+          feeStatus: pendingAction.nextStatus,
+        });
+        toast.success(
+          pendingAction.nextStatus === "cleared"
+            ? `Marked ${pendingAction.currentFullName} as cleared`
+            : `Reverted ${pendingAction.currentFullName} to outstanding`,
+        );
+      } else {
+        await setLateReg({
+          studentDocId: pendingAction.studentId,
+          lateRegistration: pendingAction.nextValue,
+        });
+        toast.success(
+          pendingAction.nextValue
+            ? `Approved late registration for ${pendingAction.currentFullName}`
+            : `Revoked late registration for ${pendingAction.currentFullName}`,
+        );
+      }
+      setPendingAction(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create student");
+      toast.error(error instanceof Error ? error.message : "Action failed");
     } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleSave(id: Id<"students">) {
-    try {
-      await updateStudent({
-        studentDocId: id,
-        fullName: editName || undefined,
-        email: editEmail || undefined,
-        phone: editPhone || undefined,
-        semester: editSemester || undefined,
-        feeStatus: editFeeStatus,
-        outstandingBalance: editBalance,
-        lateRegistration: editLateReg,
-      });
-      toast.success("Student updated");
-      setEditingId(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update student");
+      setActionBusy(false);
     }
   }
 
@@ -268,153 +227,32 @@ function StudentsTab() {
     }
   }
 
+  function downloadTemplate() {
+    const sample = [
+      "studentId,indexNumber,fullName,email,phone,semester,academicYear,feeStatus,outstandingBalance,lateRegistration",
+      "jdoe,jdoe,Jane Doe,jane@knu.edu.gh,+233000000000,1,2025/2026,cleared,0,false",
+      "jsmith,jsmith,John Smith,john@knu.edu.gh,,1,2025/2026,outstanding,1500,false",
+    ].join("\n");
+    const blob = new Blob([sample], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "students-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-3">
-      <div className="rounded-md border bg-card p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <Plus className="size-3.5 text-primary" />
-          <h2 className="text-sm font-semibold">Add student</h2>
-        </div>
-        <Separator className="mb-3" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Email</Label>
-            <Input
-              type="email"
-              required
-              value={newEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
-              placeholder="janedoe@knu.edu.gh"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              The part before “@” becomes the student ID and index number
-              {me.university?.prefix ? ` (prefix “${me.university.prefix}” is prepended)` : ""}.
-            </p>
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Full name</Label>
-            <Input
-              value={newName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-              placeholder="Jane Doe"
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Student ID</Label>
-            <div className="flex items-center rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring">
-              {me.university?.prefix ? (
-                <span className="select-none border-r bg-muted/40 px-2 py-1 font-mono text-xs text-muted-foreground">
-                  {me.university.prefix}
-                </span>
-              ) : null}
-              <Input
-                value={newStudentId}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setStudentIdTouched(true);
-                  setNewStudentId(e.target.value);
-                }}
-                placeholder={derivedStudentId || "Derived from email"}
-                className="h-8 flex-1 border-0 shadow-none focus-visible:ring-0"
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              {studentIdTouched
-                ? "Manually edited — change the email to reset."
-                : newEmail
-                  ? `Auto-derived from email: ${derivedStudentId || "—"}`
-                  : "Will be auto-filled once an email is entered."}
-              {" "}Index number is set to the same value.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Program</Label>
-            <Select
-              value={newProgramId || undefined}
-              onValueChange={(v) => setNewProgramId(v as Id<"programs">)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Program">
-                  {programs.find((p) => p._id === newProgramId)?.code ?? "Program"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {programs.map((p) => (
-                  <SelectItem key={p._id} value={p._id}>
-                    {p.code} — {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Semester</Label>
-            <Input
-              type="number"
-              min={1}
-              value={newSemester}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSemester(Number(e.target.value || 0))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Academic year</Label>
-            <Input
-              value={newYear}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewYear(e.target.value)}
-              placeholder="2025/2026"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Fee status</Label>
-            <Select
-              value={newFeeStatus}
-              onValueChange={(v) => setNewFeeStatus(v as typeof newFeeStatus)}
-            >
-              <SelectTrigger>
-                <SelectValue>{newFeeStatus === "cleared" ? "Cleared" : "Outstanding"}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cleared">Cleared</SelectItem>
-                <SelectItem value="outstanding">Outstanding</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Phone</Label>
-            <Input
-              value={newPhone}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPhone(e.target.value)}
-              placeholder="optional"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Outstanding balance</Label>
-            <Input
-              type="number"
-              min={0}
-              value={newBalance}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewBalance(Number(e.target.value || 0))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Late registration</Label>
-            <Select
-              value={newLateReg ? "yes" : "no"}
-              onValueChange={(v) => setNewLateReg(v === "yes")}
-            >
-              <SelectTrigger>
-                <SelectValue>{newLateReg ? "Yes" : "No"}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no">No</SelectItem>
-                <SelectItem value="yes">Yes</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end sm:col-span-2 lg:col-span-4">
-            <Button onClick={handleCreate} disabled={creating}>
-              Create student
-            </Button>
-          </div>
+      <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+        <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+        <div>
+          <p className="font-medium text-foreground">Students self-register on signup.</p>
+          <p className="mt-0.5">
+            When a user signs in with an email that matches{" "}
+            {me.university?.name ?? "your university"}&apos;s allowed domain, a student profile
+            is created automatically. Use the controls below to manage the registry at scale.
+          </p>
         </div>
       </div>
 
@@ -430,13 +268,20 @@ function StudentsTab() {
         programs={programs}
         importing={importing}
         onImport={handleImport}
+        onDownloadTemplate={downloadTemplate}
       />
 
       <div className="rounded-md border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-2 p-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold">Students</h2>
-            <Badge variant="secondary">{students.length}</Badge>
+            <Badge variant="secondary">{filteredStudents.length}</Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {students.filter((s) => s.feeStatus === "outstanding").length} outstanding
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">
+              {students.filter((s) => s.lateRegistration).length} late-reg
+            </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
@@ -448,6 +293,25 @@ function StudentsTab() {
                 className="h-7 w-48 pl-7 text-xs"
               />
             </div>
+            <Select
+              value={feeFilter}
+              onValueChange={(v) => setFeeFilter(v as typeof feeFilter)}
+            >
+              <SelectTrigger className="h-7 w-32 text-xs">
+                <SelectValue>
+                  {feeFilter === "all"
+                    ? "All fee status"
+                    : feeFilter === "cleared"
+                      ? "Cleared"
+                      : "Outstanding"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All fee status</SelectItem>
+                <SelectItem value="cleared">Cleared</SelectItem>
+                <SelectItem value="outstanding">Outstanding</SelectItem>
+              </SelectContent>
+            </Select>
             <Select
               value={filterProgram || "all"}
               onValueChange={(v) => setFilterProgram((v === "all" ? "" : v) as Id<"programs"> | "")}
@@ -479,68 +343,14 @@ function StudentsTab() {
                 <TableHead>Program</TableHead>
                 <TableHead>Sem</TableHead>
                 <TableHead>Fee</TableHead>
-                <TableHead>Balance</TableHead>
-                <TableHead className="w-32">Actions</TableHead>
+                <TableHead>Late reg</TableHead>
+                <TableHead className="w-44">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map((s) => {
+              {filteredStudents.map((s) => {
                 const program = programs.find((p) => p._id === s.programId);
-                return editingId === s._id ? (
-                  <TableRow key={s._id}>
-                    <TableCell className="font-mono text-xs">{s.studentId}</TableCell>
-                    <TableCell>
-                      <Input
-                        className="h-7 text-xs"
-                        value={editName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-xs">{s.indexNumber}</TableCell>
-                    <TableCell className="text-xs">{program?.code ?? "—"}</TableCell>
-                    <TableCell>
-                      <Input
-                        className="h-7 w-14 text-xs"
-                        type="number"
-                        value={editSemester}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditSemester(Number(e.target.value || 0))}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={editFeeStatus}
-                        onValueChange={(v) => setEditFeeStatus(v as typeof editFeeStatus)}
-                      >
-                        <SelectTrigger className="h-7 w-24 text-xs">
-                          <SelectValue>{editFeeStatus === "cleared" ? "Cleared" : "Outstanding"}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cleared">Cleared</SelectItem>
-                          <SelectItem value="outstanding">Outstanding</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        className="h-7 w-20 text-xs"
-                        type="number"
-                        value={editBalance}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditBalance(Number(e.target.value || 0))}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button size="xs" onClick={() => void handleSave(s._id)}>
-                          <Check className="mr-0.5 size-3" />
-                          Save
-                        </Button>
-                        <Button size="xs" variant="outline" onClick={() => setEditingId(null)}>
-                          <X className="size-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
+                return (
                   <TableRow key={s._id}>
                     <TableCell className="font-mono text-xs">{s.studentId}</TableCell>
                     <TableCell className="text-xs font-medium">{s.fullName}</TableCell>
@@ -555,25 +365,88 @@ function StudentsTab() {
                         {s.feeStatus === "cleared" ? "Cleared" : "Outstanding"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs">{s.outstandingBalance.toLocaleString()}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingId(s._id);
-                            setEditName(s.fullName);
-                            setEditEmail(s.email ?? "");
-                            setEditPhone(s.phone ?? "");
-                            setEditSemester(s.semester);
-                            setEditFeeStatus(s.feeStatus as typeof editFeeStatus);
-                            setEditBalance(s.outstandingBalance);
-                            setEditLateReg(s.lateRegistration);
-                          }}
-                        >
-                          <Pencil className="size-3" />
-                        </Button>
+                      <Badge
+                        variant={s.lateRegistration ? "secondary" : "outline"}
+                        className="text-[10px]"
+                      >
+                        {s.lateRegistration ? "Approved" : "Not approved"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {s.feeStatus === "outstanding" ? (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={actionBusy}
+                            onClick={() =>
+                              setPendingAction({
+                                studentId: s._id,
+                                kind: "fee",
+                                nextStatus: "cleared",
+                                currentFullName: s.fullName,
+                              })
+                            }
+                          >
+                            <Wallet className="mr-0.5 size-3" />
+                            Mark cleared
+                          </Button>
+                        ) : (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            disabled={actionBusy}
+                            onClick={() =>
+                              setPendingAction({
+                                studentId: s._id,
+                                kind: "fee",
+                                nextStatus: "outstanding",
+                                currentFullName: s.fullName,
+                              })
+                            }
+                          >
+                            <XCircle className="mr-0.5 size-3" />
+                            Mark outstanding
+                          </Button>
+                        )}
+                        {s.feeStatus === "outstanding" ? (
+                          s.lateRegistration ? (
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              disabled={actionBusy}
+                              onClick={() =>
+                                setPendingAction({
+                                  studentId: s._id,
+                                  kind: "late",
+                                  nextValue: false,
+                                  currentFullName: s.fullName,
+                                })
+                              }
+                            >
+                              <XCircle className="mr-0.5 size-3" />
+                              Revoke late reg
+                            </Button>
+                          ) : (
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              disabled={actionBusy}
+                              onClick={() =>
+                                setPendingAction({
+                                  studentId: s._id,
+                                  kind: "late",
+                                  nextValue: true,
+                                  currentFullName: s.fullName,
+                                })
+                              }
+                            >
+                              <Clock className="mr-0.5 size-3" />
+                              Approve late reg
+                            </Button>
+                          )
+                        ) : null}
                         <Button
                           size="xs"
                           variant="destructive"
@@ -586,10 +459,12 @@ function StudentsTab() {
                   </TableRow>
                 );
               })}
-              {students.length === 0 ? (
+              {filteredStudents.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-xs text-muted-foreground">
-                    No students match your filter.
+                    {students.length === 0
+                      ? "No students registered yet. Students appear here automatically when they sign in with a matching university email domain."
+                      : "No students match your filter."}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -598,12 +473,16 @@ function StudentsTab() {
         </ScrollArea>
       </div>
 
-      <Dialog open={confirmDeleteId !== null} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+      <Dialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Delete student?</DialogTitle>
             <DialogDescription>
-              This permanently removes the student record. Use with care.
+              This permanently removes the student record. Use only for orphaned or test records —
+              do not delete students who have signed up with a matching email.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
@@ -614,6 +493,56 @@ function StudentsTab() {
               Delete
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => !open && !actionBusy && setPendingAction(null)}
+      >
+        <DialogContent className="max-w-md">
+          {pendingAction ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {pendingAction.kind === "fee"
+                    ? pendingAction.nextStatus === "cleared"
+                      ? "Mark fees as cleared?"
+                      : "Revert fees to outstanding?"
+                    : pendingAction.nextValue
+                      ? "Approve late registration?"
+                      : "Revoke late registration?"}
+                </DialogTitle>
+                <DialogDescription>
+                  {pendingAction.kind === "fee"
+                    ? pendingAction.nextStatus === "cleared"
+                      ? `${pendingAction.currentFullName} will be allowed to register for courses and sit for exams.`
+                      : `${pendingAction.currentFullName} will be blocked from registering for courses until fees are cleared.`
+                    : pendingAction.nextValue
+                      ? `${pendingAction.currentFullName} can register for courses even with outstanding fees.`
+                      : `${pendingAction.currentFullName} will be blocked from registering for courses with outstanding fees.`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPendingAction(null)}
+                  disabled={actionBusy}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={() => void runAction()} disabled={actionBusy}>
+                  {pendingAction.kind === "fee"
+                    ? pendingAction.nextStatus === "cleared"
+                      ? "Mark cleared"
+                      : "Mark outstanding"
+                    : pendingAction.nextValue
+                      ? "Approve late reg"
+                      : "Revoke late reg"}
+                </Button>
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
@@ -632,6 +561,7 @@ function CsvImportCard({
   programs,
   importing,
   onImport,
+  onDownloadTemplate,
 }: {
   csvContent: string;
   setCsvContent: (v: string) => void;
@@ -644,6 +574,7 @@ function CsvImportCard({
   programs: { _id: Id<"programs">; code: string; name: string }[];
   importing: boolean;
   onImport: () => Promise<void>;
+  onDownloadTemplate: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -662,6 +593,15 @@ function CsvImportCard({
       {open ? (
         <>
           <Separator className="my-3" />
+          <div className="mb-3 flex items-start gap-2 rounded-md border border-dashed bg-muted/30 p-3 text-[11px] text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+            <div>
+              Use this for back-filling historical students. Newly imported students start with{" "}
+              <code className="rounded bg-muted px-1">userId = null</code>; their first sign-in
+              will auto-link the row. If a student signs up before you import them, the import
+              will skip that ID to avoid duplicates.
+            </div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
             <div className="space-y-1.5">
               <Label>Default program</Label>
@@ -697,7 +637,11 @@ function CsvImportCard({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCsvYear(e.target.value)}
               />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={onDownloadTemplate} type="button">
+                <Download className="mr-0.5 size-3" />
+                Template
+              </Button>
               <Button onClick={() => void onImport()} disabled={importing}>
                 {importing ? "Importing..." : "Import"}
               </Button>
