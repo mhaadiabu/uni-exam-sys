@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   History,
   IdCard,
-  Loader2,
   Search,
   ShieldAlert,
   X,
@@ -16,7 +15,7 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -176,8 +175,16 @@ export default function VerifyStudentsPage() {
                     Type at least 2 characters to search.
                   </p>
                 ) : matches === undefined ? (
-                  <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" /> Searching…
+                  <div className="space-y-1.5 p-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Pulse className="size-6 rounded-full" />
+                        <div className="flex-1 space-y-1">
+                          <Pulse className="h-3 w-3/4" />
+                          <Pulse className="h-2 w-1/2" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : matches.length === 0 ? (
                   <p className="px-2 text-[11px] text-muted-foreground">No students match.</p>

@@ -2,7 +2,7 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useAction } from "convex/react";
-import { AlertCircle, Loader2, Search } from "lucide-react";
+import { AlertCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -17,6 +17,8 @@ import {
 import { Input } from "@uni-exam-sys/ui/components/input";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
+
+import { Pulse } from "@/components/dashboard/kpi";
 
 import {
   actionLabel,
@@ -142,7 +144,7 @@ export function ClerkUserPicker({
               className="h-8 pl-7 pr-7 text-sm"
             />
             {loading ? (
-              <Loader2 className="absolute right-2 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+              <Pulse className="absolute right-2 top-1/2 size-3.5 -translate-y-1/2" />
             ) : null}
           </div>
         </div>
@@ -157,9 +159,16 @@ export function ClerkUserPicker({
               </div>
             </div>
           ) : results === null ? (
-            <div className="flex items-center justify-center gap-2 p-6 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Loading Clerk users…
+            <div className="space-y-2 p-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-md border p-2">
+                  <Pulse className="size-8 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Pulse className="h-3 w-1/2" />
+                    <Pulse className="h-2 w-1/3" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : results.length === 0 ? (
             <div className="p-6 text-center text-xs text-muted-foreground">

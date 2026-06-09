@@ -3,10 +3,10 @@
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { BookOpen, CheckCircle2, Loader2, Plus, X } from "lucide-react";
+import { BookOpen, CheckCircle2, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { GridSkeleton, PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -134,9 +134,7 @@ export default function RegisterCoursesPage() {
           </div>
           <Separator />
           {available === undefined ? (
-            <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading…
-            </div>
+            <TableSkeleton columns={5} rows={5} className="py-2" />
           ) : available.student === null ? (
             <div className="p-6 text-xs text-muted-foreground">
               No student profile linked to your account.

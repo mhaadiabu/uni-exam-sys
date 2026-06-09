@@ -2,12 +2,12 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { BookOpen, GraduationCap, Loader2, Users } from "lucide-react";
+import { BookOpen, GraduationCap, Users } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -102,9 +102,7 @@ export default function MyCoursesPage() {
       <div className="rounded-md border bg-card">
         <Separator />
         {courses === undefined ? (
-          <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Loading…
-          </div>
+          <TableSkeleton columns={7} rows={6} className="py-2" />
         ) : filtered.length === 0 ? (
           <div className="p-6 text-xs text-muted-foreground">
             No courses assigned yet. Ask your university admin to add you to courses.

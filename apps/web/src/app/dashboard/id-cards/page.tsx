@@ -3,10 +3,10 @@
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, IdCard, Loader2, Plus, Printer } from "lucide-react";
+import { CheckCircle2, IdCard, Plus, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -221,8 +221,13 @@ export default function IdCardsPage() {
             <TableBody>
               {filteredCards === undefined ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-xs text-muted-foreground">
-                    <Loader2 className="inline size-3 animate-spin" /> Loading…
+                  <TableCell colSpan={6} className="py-3">
+                    <div className="flex items-center gap-3">
+                      <Pulse className="h-3 w-24" />
+                      <Pulse className="h-3 w-32" />
+                      <Pulse className="h-3 w-20" />
+                      <Pulse className="h-3 w-24" />
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : filteredCards.length === 0 ? (

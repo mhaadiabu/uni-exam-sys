@@ -3,10 +3,10 @@
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, ClipboardList, Loader2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ClipboardList, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -168,9 +168,7 @@ export default function MarkAttendancePage() {
               one.
             </div>
           ) : dashboard === undefined ? (
-            <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading assignments…
-            </div>
+            <TableSkeleton columns={3} rows={4} className="py-2" />
           ) : myAssignments.length === 0 ? (
             <div className="p-4 text-xs text-muted-foreground">
               No active assignments. Once a room is assigned, it will appear here.
@@ -270,9 +268,7 @@ export default function MarkAttendancePage() {
               Pick an assignment on the left to start marking.
             </div>
           ) : registerData === undefined ? (
-            <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading register…
-            </div>
+            <TableSkeleton columns={4} rows={8} className="py-2" />
           ) : registerData === null ? (
             <div className="p-6 text-xs text-muted-foreground">
               The register could not be created. Try opening the assignment again.

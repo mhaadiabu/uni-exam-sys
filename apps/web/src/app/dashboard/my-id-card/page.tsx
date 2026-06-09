@@ -2,10 +2,10 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { IdCard, Loader2, Printer, RefreshCcw } from "lucide-react";
+import { IdCard, Printer, RefreshCcw } from "lucide-react";
 import { useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -33,8 +33,38 @@ export default function MyIdCardPage() {
 
   if (data === undefined) {
     return (
-      <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" /> Loading your ID card…
+      <div className="space-y-4">
+        <PageHeader title="My ID Card" description="Digital copy of your student ID. Show this at exam entry." />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-4 rounded-md border bg-card p-6">
+            <div className="flex items-center gap-2">
+              <IdCard className="size-5 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Student ID
+              </span>
+            </div>
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="space-y-1">
+                  <Pulse className="h-2 w-16" />
+                  <Pulse className={i === 2 ? "h-5 w-40" : "h-4 w-32"} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-3 rounded-md border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Printer className="size-4 text-primary" />
+              <Pulse className="h-4 w-24" />
+            </div>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <Pulse className="h-3 w-20" />
+                <Pulse className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

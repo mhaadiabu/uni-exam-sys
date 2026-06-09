@@ -6,7 +6,7 @@ import { Globe, Loader2, Palette, Save, Settings as SettingsIcon } from "lucide-
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { CardSkeleton, PageHeader, Pulse } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -163,9 +163,7 @@ function BrandingPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         {branding === undefined ? (
-          <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Loading branding…
-          </div>
+          <CardSkeleton rows={3} className="border-0 p-0" />
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">

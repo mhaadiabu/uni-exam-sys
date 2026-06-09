@@ -2,10 +2,10 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Calendar, CalendarClock, ClipboardList, History, Loader2, MapPin } from "lucide-react";
+import { Calendar, CalendarClock, ClipboardList, History, MapPin } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -150,8 +150,20 @@ export default function MyAssignmentsPage() {
 
   if (dashboard === undefined) {
     return (
-      <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" /> Loading assignments…
+      <div className="space-y-4">
+        <PageHeader
+          title="My Assignments"
+          description="Rooms and dates you are scheduled to invigilate."
+        />
+        <Pulse className="h-9 w-72 rounded-md border bg-card" />
+        <div className="rounded-md border bg-card">
+          <div className="flex items-center gap-2 p-4">
+            <Calendar className="size-4 text-primary" />
+            <Pulse className="h-4 w-32" />
+          </div>
+          <Separator />
+          <TableSkeleton columns={5} rows={5} className="py-2" />
+        </div>
       </div>
     );
   }

@@ -5,7 +5,6 @@ import { useQuery } from "convex/react";
 import {
   AlertTriangle,
   KeyRound,
-  Loader2,
   Lock,
   ScrollText,
   ShieldCheck,
@@ -13,7 +12,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -211,9 +210,7 @@ export default function SecurityPage() {
           <Separator />
 
           {logs === undefined ? (
-            <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading activity…
-            </div>
+            <TableSkeleton columns={4} rows={6} className="py-2" />
           ) : filtered.length === 0 ? (
             <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
               <AlertTriangle className="size-3.5" /> No events match the current filter.

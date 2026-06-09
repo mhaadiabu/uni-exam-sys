@@ -2,10 +2,10 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Calendar, Loader2 } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -55,8 +55,30 @@ export default function MyTimetablePage() {
       />
 
       {data === undefined ? (
-        <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" /> Loading…
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border bg-card p-3">
+              <p className="text-[11px] uppercase text-muted-foreground">Program</p>
+              <Pulse className="mt-1 h-4 w-32" />
+            </div>
+            <div className="rounded-md border bg-card p-3">
+              <p className="text-[11px] uppercase text-muted-foreground">Fee status</p>
+              <Pulse className="mt-1 h-5 w-16 rounded-full" />
+            </div>
+            <div className="rounded-md border bg-card p-3">
+              <p className="text-[11px] uppercase text-muted-foreground">Exams</p>
+              <Pulse className="mt-1 h-4 w-8" />
+            </div>
+          </div>
+          <Pulse className="block h-9 w-full rounded-md border bg-card" />
+          <div className="rounded-md border bg-card">
+            <div className="flex items-center gap-2 p-4">
+              <Calendar className="size-4 text-primary" />
+              <h2 className="text-sm font-semibold">Exam schedule</h2>
+            </div>
+            <Separator />
+            <TableSkeleton columns={5} rows={6} className="py-2" />
+          </div>
         </div>
       ) : data === null ? (
         <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">

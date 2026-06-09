@@ -2,10 +2,10 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { FileText, Loader2, Wallet } from "lucide-react";
+import { FileText, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -172,9 +172,7 @@ export default function MyInvigilatorPaymentsPage() {
       <div className="rounded-md border bg-card">
         <Separator />
         {payments === undefined ? (
-          <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Loading…
-          </div>
+          <TableSkeleton columns={6} rows={6} className="py-2" />
         ) : filtered.length === 0 ? (
           <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
             <Wallet className="size-3.5" /> No payments yet. They will appear once finance records them.

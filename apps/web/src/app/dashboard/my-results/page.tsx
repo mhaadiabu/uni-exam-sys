@@ -2,10 +2,10 @@
 
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { FileText, GraduationCap, Loader2 } from "lucide-react";
+import { FileText, GraduationCap } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, Pulse, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -107,20 +107,28 @@ export default function MyResultsPage() {
           <p className="text-[11px] uppercase text-muted-foreground">Cumulative GPA</p>
           <p className="mt-1 flex items-center gap-2 text-2xl font-semibold">
             <GraduationCap className="size-4 text-primary" />
-            {gpa ?? "—"}
+            {results === undefined ? <Pulse className="h-7 w-16" /> : gpa ?? "—"}
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Based on {results.length} approved result{results.length === 1 ? "" : "s"}
+            {results === undefined
+              ? "Calculating…"
+              : `Based on ${results.length} approved result${results.length === 1 ? "" : "s"}`}
           </p>
         </div>
         <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Total entries</p>
-          <p className="mt-1 text-2xl font-semibold">{results.length}</p>
+          <p className="mt-1 text-2xl font-semibold">
+            {results === undefined ? <Pulse className="h-7 w-12" /> : results.length}
+          </p>
         </div>
         <div className="rounded-md border bg-card p-3">
           <p className="text-[11px] uppercase text-muted-foreground">Latest update</p>
           <p className="mt-1 text-xs font-medium">
-            {results.length > 0 ? formatDateTime(Math.max(...results.map((r) => r.updatedAt))) : "—"}
+            {results === undefined
+              ? <Pulse className="h-3 w-32" />
+              : results.length > 0
+                ? formatDateTime(Math.max(...results.map((r) => r.updatedAt)))
+                : "—"}
           </p>
         </div>
       </div>
@@ -137,9 +145,7 @@ export default function MyResultsPage() {
       <div className="rounded-md border bg-card">
         <Separator />
         {results === undefined ? (
-          <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Loading results…
-          </div>
+          <TableSkeleton columns={5} rows={6} className="py-2" />
         ) : filtered.length === 0 ? (
           <div className="p-6 text-xs text-muted-foreground">
             No results yet. Lecturers submit results for admin review, then approved results appear here.

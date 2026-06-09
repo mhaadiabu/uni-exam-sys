@@ -3,10 +3,10 @@
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, Save, Send, Upload } from "lucide-react";
+import { CheckCircle2, Save, Send, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -253,9 +253,7 @@ export default function UploadResultsPage() {
         {!selectedCourseId ? (
           <div className="p-6 text-xs text-muted-foreground">Pick a course to see enrolled students.</div>
         ) : courseStudents === undefined ? (
-          <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Loading students…
-          </div>
+          <TableSkeleton columns={3} rows={8} className="py-2" />
         ) : courseStudents.length === 0 ? (
           <div className="p-6 text-xs text-muted-foreground">
             No students are enrolled in this course yet.

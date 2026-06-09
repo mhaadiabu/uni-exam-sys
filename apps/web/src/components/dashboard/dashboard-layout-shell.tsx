@@ -16,7 +16,8 @@ import { cn } from "@uni-exam-sys/ui/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 
-import { SidebarNav } from "./sidebar";
+import { Pulse, PageHeader } from "./kpi";
+import { SidebarNav, SidebarNavSkeleton } from "./sidebar";
 import type { AppRole } from "./sections";
 
 type MeUser = Doc<"users"> & { university?: Doc<"universities"> | null };
@@ -45,36 +46,21 @@ export function DashboardLayoutShell({ children }: { children: React.ReactNode }
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  if (me === undefined) {
-    return <DashboardLoading message="Preparing your workspace" />;
-  }
-
-  if (me === null) {
-    return (
-      <DashboardLoading
-        message="Linking your account"
-        description="Verifying your identity with the platform. This usually takes a moment."
-      />
-    );
-  }
-
-  const role = me.role as AppRole;
-  const meWithUniversity: MeUser = me;
-
   const sidebarWidth = collapsed ? "4rem" : "16rem";
+  const ready = me !== undefined && me !== null;
 
   return (
-    <MeContext.Provider value={{ me: meWithUniversity }}>
-      <div className="flex h-svh overflow-hidden">
-        {/* Desktop sidebar */}
-        <aside
-          className={cn(
-            "hidden h-svh shrink-0 flex-col overflow-hidden border-r bg-sidebar transition-all duration-200 ease-in-out lg:flex",
-          )}
-          style={{ width: sidebarWidth }}
-        >
+    <div className="flex h-svh overflow-hidden">
+      {/* Desktop sidebar */}
+      <aside
+        className={cn(
+          "hidden h-svh shrink-0 flex-col overflow-hidden border-r bg-sidebar transition-all duration-200 ease-in-out lg:flex",
+        )}
+        style={{ width: sidebarWidth }}
+      >
+        {ready && me ? (
           <SidebarNav
-            role={role}
+            role={me.role as AppRole}
             userName={me.fullName}
             userEmail={me.email ?? undefined}
             collapsed={collapsed}
@@ -83,54 +69,70 @@ export function DashboardLayoutShell({ children }: { children: React.ReactNode }
             avatar={<UserAvatar name={me.fullName} className="size-8" />}
             onSignOut={() => void clerk.signOut()}
           />
-        </aside>
+        ) : (
+          <SidebarNavSkeleton collapsed={collapsed} />
+        )}
+      </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto min-h-0">
-          {/* Mobile header */}
-          <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto min-h-0">
+        {/* Mobile header */}
+        <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background px-4 lg:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="4" x2="20" y1="12" y2="12" />
-                <line x1="4" x2="20" y1="6" y2="6" />
-                <line x1="4" x2="20" y1="18" y2="18" />
-              </svg>
-            </Button>
-            <span className="text-sm font-semibold tracking-tight">AcademeX</span>
-            <div className="ml-auto flex items-center gap-1">
-              <ModeToggle />
+              <line x1="4" x2="20" y1="12" y2="12" />
+              <line x1="4" x2="20" y1="6" y2="6" />
+              <line x1="4" x2="20" y1="18" y2="18" />
+            </svg>
+          </Button>
+          <span className="text-sm font-semibold tracking-tight">AcademeX</span>
+          <div className="ml-auto flex items-center gap-1">
+            <ModeToggle />
+            {ready && me ? (
               <UserAvatar name={me.fullName} className="size-8" />
-            </div>
+            ) : (
+              <Pulse className="size-8 rounded-full" />
+            )}
           </div>
-
-          {/* Content */}
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
         </div>
 
-        {/* Mobile sidebar overlay */}
-        <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-          <DialogContent
-            className="left-0 top-0 h-svh w-64 -translate-x-0 -translate-y-0 rounded-none border-r p-0"
-            showCloseButton={false}
-          >
-            <aside className="flex h-full w-full flex-col bg-sidebar">
+        {/* Content */}
+        <main className="flex-1 p-4 sm:p-6">
+          {ready && me ? (
+            <MeContext.Provider value={{ me: me as MeUser }}>{children}</MeContext.Provider>
+          ) : me === null ? (
+            <LinkingAccountState />
+          ) : (
+            <ContentSkeleton />
+          )}
+        </main>
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
+        <DialogContent
+          className="left-0 top-0 h-svh w-64 -translate-x-0 -translate-y-0 rounded-none border-r p-0"
+          showCloseButton={false}
+        >
+          <aside className="flex h-full w-full flex-col bg-sidebar">
+            {ready && me ? (
               <SidebarNav
-                role={role}
+                role={me.role as AppRole}
                 userName={me.fullName}
                 userEmail={me.email ?? undefined}
                 collapsed={false}
@@ -144,30 +146,52 @@ export function DashboardLayoutShell({ children }: { children: React.ReactNode }
                 }}
                 mobile
               />
-            </aside>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </MeContext.Provider>
+            ) : (
+              <SidebarNavSkeleton collapsed={false} />
+            )}
+          </aside>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
-function DashboardLoading({
-  message,
-  description,
-}: {
-  message: string;
-  description?: string;
-}) {
+function LinkingAccountState() {
   return (
-    <div className="grid min-h-svh place-items-center px-4 py-6 sm:px-6">
-      <div className="space-y-3 text-center">
-        <div className="mx-auto size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm font-medium">{message}</p>
-        {description ? (
-          <p className="text-xs text-muted-foreground">{description}</p>
-        ) : null}
+    <div className="space-y-4">
+      <PageHeader
+        title="Linking your account"
+        description="Verifying your identity with the platform. This usually takes a moment."
+      />
+      <div className="space-y-3">
+        <Pulse className="h-4 w-2/3" />
+        <Pulse className="h-3 w-full" />
+        <Pulse className="h-3 w-5/6" />
       </div>
+    </div>
+  );
+}
+
+function ContentSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-2">
+          <Pulse className="h-7 w-48" />
+          <Pulse className="h-3 w-72" />
+        </div>
+        <div className="flex gap-2">
+          <Pulse className="h-8 w-24" />
+          <Pulse className="h-8 w-20" />
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Pulse className="h-20 w-full rounded-md border bg-card" />
+        <Pulse className="h-20 w-full rounded-md border bg-card" />
+        <Pulse className="h-20 w-full rounded-md border bg-card" />
+      </div>
+      <Pulse className="h-9 w-full rounded-md border bg-card" />
+      <Pulse className="h-64 w-full rounded-md border bg-card" />
     </div>
   );
 }

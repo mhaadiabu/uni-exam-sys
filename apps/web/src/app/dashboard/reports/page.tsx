@@ -6,7 +6,7 @@ import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -295,9 +295,7 @@ export default function ReportsPage() {
           </div>
           <Separator />
           {timetable === undefined ? (
-            <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading…
-            </div>
+            <TableSkeleton columns={5} rows={6} className="py-2" />
           ) : timetable.length === 0 ? (
             <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
               <FileSpreadsheet className="size-3.5" /> No schedules to preview.

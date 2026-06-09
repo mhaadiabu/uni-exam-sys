@@ -3,10 +3,10 @@
 import { api } from "@uni-exam-sys/backend/convex/_generated/api";
 import type { Id } from "@uni-exam-sys/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ClipboardList, Loader2, Shield } from "lucide-react";
+import { ClipboardList, Shield } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { PageHeader } from "@/components/dashboard/kpi";
+import { PageHeader, TableSkeleton } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 
 import { Badge } from "@uni-exam-sys/ui/components/badge";
@@ -297,9 +297,7 @@ export default function AttendancePage() {
               Select a register on the left to review and update attendance.
             </div>
           ) : registerData === undefined ? (
-            <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Loading register…
-            </div>
+            <TableSkeleton columns={4} rows={8} className="py-2" />
           ) : registerData === null ? (
             <div className="p-6 text-xs text-muted-foreground">
               No register exists for this exam+room yet. The assigned invigilator will create it
