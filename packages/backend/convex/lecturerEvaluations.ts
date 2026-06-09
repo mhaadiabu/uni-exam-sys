@@ -24,6 +24,13 @@ const RATING_KEYS = ["teaching", "content", "engagement", "punctuality", "fairne
 
 type Ratings = Record<(typeof RATING_KEYS)[number], number>;
 
+/**
+ * Asserts that the provided value conforms to the Ratings shape.
+ *
+ * Throws an Error if the value is not an object, if any required rating is not a finite number, or if any rating is less than 1 or greater than 5.
+ *
+ * @param value - The candidate ratings object expected to contain numeric keys `teaching`, `content`, `engagement`, `punctuality`, and `fairness`
+ */
 function assertValidRatings(value: unknown): asserts value is Ratings {
   if (!value || typeof value !== "object") {
     throw new Error("Ratings are required");
@@ -40,12 +47,22 @@ function assertValidRatings(value: unknown): asserts value is Ratings {
   }
 }
 
+/**
+ * Computes the arithmetic mean of an array of numbers.
+ *
+ * @returns The average of `values`, or `0` if `values` is empty.
+ */
 function average(values: number[]): number {
   if (values.length === 0) return 0;
   const sum = values.reduce((a, b) => a + b, 0);
   return sum / values.length;
 }
 
+/**
+ * Finds the student profile for a user within a university.
+ *
+ * @returns The matching student record if one exists in the specified university, otherwise `null`.
+ */
 async function findStudentForUser(
   ctx: QueryCtx | MutationCtx,
   universityId: Id<"universities">,
@@ -58,6 +75,13 @@ async function findStudentForUser(
   return rows.find((r) => r.userId === userId) ?? null;
 }
 
+/**
+ * Locate the lecturer profile for a given user within a university.
+ *
+ * @param universityId - University to scope the search to
+ * @param userId - User id to match against lecturer profiles
+ * @returns The lecturer record for the specified user in the university, or `null` if none is found
+ */
 async function findLecturerForUser(
   ctx: QueryCtx | MutationCtx,
   universityId: Id<"universities">,
@@ -345,6 +369,16 @@ type AggregateResult = {
   comments: Array<{ id: string; comment: string; createdAt: number }>;
 };
 
+/**
+ * Computes aggregated statistics and recent comments from a list of evaluation rows.
+ *
+ * @param rows - Evaluation records to aggregate; each must include `ratings` and may include `comment` and `createdAt`
+ * @returns An object with:
+ *   - `count`: the number of provided rows
+ *   - `averages`: per-category average ratings for `teaching`, `content`, `engagement`, `punctuality`, and `fairness`
+ *   - `overall`: the average of the five category averages
+ *   - `comments`: an array of `{ id, comment, createdAt }` for rows with non-empty trimmed comments, sorted by `createdAt` descending
+ */
 function aggregateRows(rows: EvalRowLike[]): AggregateResult {
   const byKey: Record<keyof Ratings, number[]> = {
     teaching: [],

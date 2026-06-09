@@ -32,6 +32,13 @@ const DIMENSION_LABELS = [
 
 type DimKey = (typeof DIMENSION_LABELS)[number]["key"];
 
+/**
+ * Page component that displays a lecturer's aggregated course evaluation results with term filtering and role-based access control.
+ *
+ * Renders summary KPIs (overall rating, total responses, total comments), a term filter, and either an empty-state message or a list of per-course evaluation cards containing overall score, per-dimension averages, and a scrollable comments list. If the current user is not a lecturer or an admin role, renders a restricted-access message instead.
+ *
+ * @returns A JSX element rendering the "My Evaluations" page UI.
+ */
 export default function MyEvaluationsPage() {
   const me = useMe();
   const [filter, setFilter] = useState<{ academicYear: string; semester: number } | "all">("all");

@@ -43,6 +43,14 @@ import { Kpi } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 import { formatDateTime, roleLabel } from "@/lib/utils";
 
+/**
+ * Render the dashboard home UI for the current user, including role-specific KPI metrics and a notifications panel with read-state updates.
+ *
+ * Displays role-scoped KPI tiles, lists recent notifications (up to 8), and provides a detail dialog for each notification.
+ * Opening a notification shows its full content and will mark it as read if it was unread.
+ *
+ * @returns The dashboard home page React element
+ */
 export default function DashboardHomePage() {
   const me = useMe();
   const isSuperAdmin = me.role === "super_admin";
