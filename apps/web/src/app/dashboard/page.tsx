@@ -14,8 +14,12 @@ import {
   Users,
   Wallet,
   Bell,
+  MailOpen,
+  X,
 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import {
   Card,
@@ -24,6 +28,14 @@ import {
   CardTitle,
 } from "@uni-exam-sys/ui/components/card";
 import { Badge } from "@uni-exam-sys/ui/components/badge";
+import { Button } from "@uni-exam-sys/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@uni-exam-sys/ui/components/dialog";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
 
@@ -31,6 +43,14 @@ import { Kpi } from "@/components/dashboard/kpi";
 import { useMe } from "@/components/dashboard/dashboard-layout-shell";
 import { formatDateTime, roleLabel } from "@/lib/utils";
 
+/**
+ * Render the dashboard home UI for the current user, including role-specific KPI metrics and a notifications panel with read-state updates.
+ *
+ * Displays role-scoped KPI tiles, lists recent notifications (up to 8), and provides a detail dialog for each notification.
+ * Opening a notification shows its full content and will mark it as read if it was unread.
+ *
+ * @returns The dashboard home page React element
+ */
 export default function DashboardHomePage() {
   const me = useMe();
   const isSuperAdmin = me.role === "super_admin";
@@ -64,6 +84,31 @@ export default function DashboardHomePage() {
   );
 
   const notifications = useQuery(api.communications.listNotifications, me._id ? {} : "skip") ?? [];
+  const markRead = useMutation(api.communications.markNotificationRead);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.readAt).length,
+    [notifications],
+  );
+
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openNotification = openId
+    ? notifications.find((n) => n._id === openId) ?? null
+    : null;
+
+  async function openNotificationById(id: string) {
+    setOpenId(id);
+    const target = notifications.find((n) => n._id === id);
+    if (target && !target.readAt) {
+      try {
+        await markRead({ notificationId: id as never });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not mark notification as read",
+        );
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -91,7 +136,14 @@ export default function DashboardHomePage() {
             <Bell className="size-4 text-muted-foreground" />
             Notifications
           </CardTitle>
-          <Badge variant="secondary">{notifications.length}</Badge>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 ? (
+              <Badge variant="default" className="text-[10px]">
+                {unreadCount} new
+              </Badge>
+            ) : null}
+            <Badge variant="secondary">{notifications.length}</Badge>
+          </div>
         </CardHeader>
         <Separator />
         <ScrollArea className="h-72">
@@ -102,21 +154,79 @@ export default function DashboardHomePage() {
             </div>
           ) : (
             <div className="divide-y">
-              {notifications.slice(0, 8).map((n) => (
-                <div key={n._id} className="px-6 py-3">
-                  <p className="text-xs font-medium">{n.title}</p>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                    {n.body}
-                  </p>
-                  <p className="mt-1 text-[10px] tabular-nums text-muted-foreground/60">
-                    {formatDateTime(n.createdAt)}
-                  </p>
-                </div>
-              ))}
+              {notifications.slice(0, 8).map((n) => {
+                const isUnread = !n.readAt;
+                return (
+                  <button
+                    key={n._id}
+                    type="button"
+                    onClick={() => void openNotificationById(n._id)}
+                    className={
+                      "flex w-full items-start gap-2 px-6 py-3 text-left transition-colors hover:bg-muted/50 " +
+                      (isUnread ? "bg-primary/5" : "")
+                    }
+                  >
+                    {isUnread ? (
+                      <span
+                        className="mt-1 size-1.5 shrink-0 rounded-full bg-primary"
+                        aria-label="Unread"
+                      />
+                    ) : (
+                      <MailOpen className="mt-0.5 size-3 shrink-0 text-muted-foreground/50" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={
+                          "truncate text-xs " + (isUnread ? "font-semibold" : "font-medium")
+                        }
+                      >
+                        {n.title}
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                        {n.body}
+                      </p>
+                      <p className="mt-1 text-[10px] tabular-nums text-muted-foreground/60">
+                        {formatDateTime(n.createdAt)}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </ScrollArea>
       </Card>
+
+      <Dialog open={openNotification !== null} onOpenChange={(o) => !o && setOpenId(null)}>
+        <DialogContent className="max-w-lg">
+          {openNotification ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-sm">{openNotification.title}</DialogTitle>
+                <DialogDescription className="text-[11px]">
+                  {formatDateTime(openNotification.createdAt)} ·{" "}
+                  {openNotification.roleScope === "all"
+                    ? "Everyone"
+                    : roleLabel(openNotification.roleScope)}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 px-3 py-2 text-xs leading-relaxed">
+                {openNotification.body}
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setOpenId(null)}
+                >
+                  <X className="mr-1 size-3" /> Close
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

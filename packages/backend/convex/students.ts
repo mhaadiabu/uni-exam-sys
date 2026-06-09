@@ -336,13 +336,13 @@ export const importStudentsCsv = mutation({
 
       const rawStudentId = row.studentId || row.student_id || row.id;
       const studentId = await applyUniversityPrefix(ctx, universityId, rawStudentId);
-      const indexNumber = row.indexNumber || row.index_number || row.index;
+      const indexNumber = row.indexNumber || row.index_number || row.index || studentId;
       const fullName = row.fullName || row.full_name || row.name;
 
-      if (!studentId || !indexNumber || !fullName) {
+      if (!studentId || !fullName) {
         result.errors.push({
           rowNumber,
-          message: "Required columns missing (studentId, indexNumber, fullName)",
+          message: "Required columns missing (studentId, fullName)",
         });
         continue;
       }
@@ -430,6 +430,7 @@ export const listMyResults = query({
   args: {
     academicYear: v.optional(v.string()),
     semester: v.optional(v.number()),
+    includeUnapproved: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const session = await requireSessionUser(ctx);
@@ -451,6 +452,13 @@ export const listMyResults = query({
       .query("courseResults")
       .withIndex("by_student", (q) => q.eq("studentId", student._id))
       .collect();
+
+    // Students only see approved results. Admins can opt in to
+    // viewing every status (used for review/transcript generation).
+    const isAdminViewer = session.user.role === "super_admin" || session.user.role === "university_admin";
+    if (!isAdminViewer && !args.includeUnapproved) {
+      results = results.filter((r) => r.status === "approved");
+    }
 
     if (args.academicYear) {
       results = results.filter((r) => r.academicYear === args.academicYear);

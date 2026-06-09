@@ -20,6 +20,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as finance from "../finance.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as idCards from "../idCards.js";
+import type * as lecturerEvaluations from "../lecturerEvaluations.js";
 import type * as lecturers from "../lecturers.js";
 import type * as lib_attendance from "../lib/attendance.js";
 import type * as lib_audit from "../lib/audit.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   finance: typeof finance;
   healthCheck: typeof healthCheck;
   idCards: typeof idCards;
+  lecturerEvaluations: typeof lecturerEvaluations;
   lecturers: typeof lecturers;
   "lib/attendance": typeof lib_attendance;
   "lib/audit": typeof lib_audit;

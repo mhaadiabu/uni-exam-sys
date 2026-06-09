@@ -13,13 +13,6 @@ import { Input } from "@uni-exam-sys/ui/components/input";
 import { ScrollArea } from "@uni-exam-sys/ui/components/scroll-area";
 import { Separator } from "@uni-exam-sys/ui/components/separator";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@uni-exam-sys/ui/components/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -33,30 +26,30 @@ import { downloadPdf, type PdfTable } from "@/lib/reports";
 
 const GRADE_POINTS: Record<string, number> = { A: 4.0, B: 3.5, C: 3.0, D: 2.5, E: 2.0, F: 0.0 };
 
+/**
+ * Render the "My Results" page showing a student's approved grades, cumulative GPA, search/filter input, PDF export action, and a scrollable results table. If the current user is not a student, renders an access-restricted message instead.
+ *
+ * @returns The React element for the My Results page.
+ */
 export default function MyResultsPage() {
   const me = useMe();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "approved" | "submitted" | "rejected" | "draft">("all");
 
   const results = useQuery(api.students.listMyResults, {}) ?? [];
 
   const filtered = useMemo(() => {
-    return results.filter((r) => {
-      if (filter !== "all" && r.status !== filter) return false;
-      if (search.trim()) {
-        const term = search.trim().toLowerCase();
-        return (
-          r.course?.code.toLowerCase().includes(term) ||
-          r.course?.name.toLowerCase().includes(term) ||
-          r.lecturer?.fullName.toLowerCase().includes(term)
-        );
-      }
-      return true;
-    });
-  }, [results, filter, search]);
+    if (!search.trim()) return results;
+    const term = search.trim().toLowerCase();
+    return results.filter(
+      (r) =>
+        r.course?.code.toLowerCase().includes(term) ||
+        r.course?.name.toLowerCase().includes(term) ||
+        r.lecturer?.fullName.toLowerCase().includes(term),
+    );
+  }, [results, search]);
 
   const gpa = useMemo(() => {
-    const approved = results.filter((r) => r.status === "approved" && r.grade);
+    const approved = results.filter((r) => r.grade);
     if (approved.length === 0) return null;
     const total = approved.reduce((sum, r) => sum + (GRADE_POINTS[r.grade ?? "F"] ?? 0), 0);
     return (total / approved.length).toFixed(2);
@@ -81,7 +74,6 @@ export default function MyResultsPage() {
           { header: "Score", width: 50 },
           { header: "Grade", width: 40 },
           { header: "Lecturer", width: 120 },
-          { header: "Status", width: 60 },
         ],
         rows: filtered.map((r) => [
           r.course?.code ?? "—",
@@ -89,7 +81,6 @@ export default function MyResultsPage() {
           `${r.score}/${r.maxScore}`,
           r.grade ?? "—",
           r.lecturer?.fullName ?? "—",
-          r.status,
         ]),
       },
     ];
@@ -100,7 +91,7 @@ export default function MyResultsPage() {
     <div className="space-y-4">
       <PageHeader
         title="My Results"
-        description="Your grades across all courses and semesters."
+        description="Approved grades across all courses and semesters."
         actions={
           <button
             onClick={exportPdf}
@@ -119,8 +110,7 @@ export default function MyResultsPage() {
             {gpa ?? "—"}
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Based on {results.filter((r) => r.status === "approved").length} approved result
-            {results.filter((r) => r.status === "approved").length === 1 ? "" : "s"}
+            Based on {results.length} approved result{results.length === 1 ? "" : "s"}
           </p>
         </div>
         <div className="rounded-md border bg-card p-3">
@@ -136,29 +126,12 @@ export default function MyResultsPage() {
       </div>
 
       <div className="rounded-md border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-            placeholder="Filter by course, lecturer…"
-            className="h-8 flex-1 min-w-[200px] text-xs"
-          />
-          <Select
-            value={filter}
-            onValueChange={(v) => setFilter((v as "all" | "approved" | "submitted" | "rejected" | "draft") ?? "all")}
-          >
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue>{filter === "all" ? "All statuses" : filter}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="submitted">Submitted</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Input
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          placeholder="Filter by course, lecturer…"
+          className="h-8 text-xs"
+        />
       </div>
 
       <div className="rounded-md border bg-card">
@@ -169,7 +142,7 @@ export default function MyResultsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-6 text-xs text-muted-foreground">
-            No results match your filter. Once lecturers upload, they will appear here.
+            No results yet. Lecturers submit results for admin review, then approved results appear here.
           </div>
         ) : (
           <ScrollArea className="max-h-[60vh]">
@@ -181,7 +154,6 @@ export default function MyResultsPage() {
                   <TableHead>Year/Sem</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Grade</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -206,22 +178,6 @@ export default function MyResultsPage() {
                     <TableCell>
                       <Badge variant="secondary" className="text-[10px]">
                         {r.grade ?? "—"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          r.status === "approved"
-                            ? "default"
-                            : r.status === "rejected"
-                              ? "destructive"
-                              : r.status === "submitted"
-                                ? "secondary"
-                                : "outline"
-                        }
-                        className="text-[10px] capitalize"
-                      >
-                        {r.status}
                       </Badge>
                     </TableCell>
                   </TableRow>

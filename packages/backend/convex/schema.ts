@@ -626,6 +626,31 @@ export default defineSchema({
     .index("by_actor", ["actorUserId"])
     .index("by_action", ["action"]),
 
+  lecturerEvaluations: defineTable({
+    universityId: v.id("universities"),
+    courseId: v.id("courses"),
+    lecturerId: v.id("lecturers"),
+    studentId: v.id("students"),
+    academicYear: v.string(),
+    semester: v.number(),
+    ratings: v.object({
+      teaching: v.number(),
+      content: v.number(),
+      engagement: v.number(),
+      punctuality: v.number(),
+      fairness: v.number(),
+    }),
+    comment: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_university", ["universityId"])
+    .index("by_course", ["courseId"])
+    .index("by_lecturer", ["lecturerId"])
+    .index("by_student", ["studentId"])
+    .index("by_student_term", ["studentId", "academicYear", "semester"])
+    .index("by_course_student_term", ["courseId", "studentId", "academicYear", "semester"]),
+
   courseRegistrations: defineTable({
     universityId: v.id("universities"),
     studentId: v.id("students"),

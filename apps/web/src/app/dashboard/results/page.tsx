@@ -42,6 +42,15 @@ const STATUS_VARIANT: Record<ResultStatus, "default" | "secondary" | "destructiv
   rejected: "destructive",
 };
 
+/**
+ * Renders an admin-only interface for listing, filtering, reviewing, and exporting course results.
+ *
+ * The page shows status counts, a client-side search across student/course fields, per-result actions
+ * to approve or reject submitted results (optionally attaching a review note), and an Export PDF action
+ * for the currently filtered results. Non-admin users see an access message.
+ *
+ * @returns A React element rendering the results review UI.
+ */
 export default function ResultsPage() {
   const me = useMe();
   const [statusFilter, setStatusFilter] = useState<"all" | ResultStatus>("all");
@@ -232,7 +241,7 @@ export default function ResultsPage() {
                       {formatDateTime(r.updatedAt)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.status === "submitted" || r.status === "draft" ? (
+                      {r.status === "submitted" ? (
                         <div className="flex justify-end gap-1">
                           <Button
                             size="sm"
@@ -253,7 +262,7 @@ export default function ResultsPage() {
                         </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">
-                          {r.reviewerNote ?? "—"}
+                          {r.reviewerNote ?? (r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Draft — not submitted")}
                         </span>
                       )}
                     </TableCell>
