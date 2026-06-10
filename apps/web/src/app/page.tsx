@@ -1,9 +1,6 @@
-import { ArrowRight, BookOpen, GraduationCap } from "lucide-react";
+import { BookOpen, GraduationCap } from "lucide-react";
 
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
-
-import { Button } from "@uni-exam-sys/ui/components/button";
-
+import { HomeCtas } from "./_components/home-ctas";
 import { HomeRedirect } from "./_components/home-redirect";
 
 export default function HomePage() {
@@ -25,12 +22,7 @@ export default function HomePage() {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <SignUpButton>
-              <Button size="lg" className="w-full gap-2 sm:w-auto rounded-full font-semibold">Start orchestrating<ArrowRight className="size-4" /></Button>
-            </SignUpButton>
-            <SignInButton>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto rounded-full font-semibold">Sign in to workspace</Button>
-            </SignInButton>
+            <HomeCtas />
           </div>
 
           <p className="mt-16 flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground/80">

@@ -1,6 +1,6 @@
 "use client";
 
-import { SignInButton, SignUpButton, useAuth } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ import { ModeToggle } from "./mode-toggle";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isSignedIn, isLoaded } = useAuth();
+  const clerk = useClerk();
   const isDashboard = pathname?.startsWith("/dashboard") ?? false;
 
   if (!isLoaded) {
@@ -43,8 +44,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Button>
               ) : (
                 <>
-                  <SignInButton><Button variant="ghost" size="sm">Sign in</Button></SignInButton>
-                  <SignUpButton><Button size="sm">Get started</Button></SignUpButton>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => clerk.openSignIn()}
+                  >
+                    Sign in
+                  </Button>
+                  <Button size="sm" onClick={() => clerk.openSignUp()}>
+                    Get started
+                  </Button>
                 </>
               )}
             </div>
