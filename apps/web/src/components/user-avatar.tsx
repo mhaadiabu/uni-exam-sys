@@ -1,3 +1,4 @@
+import { SVG } from "@mhaadi/svg";
 import { cn } from "@uni-exam-sys/ui/lib/utils";
 
 export function UserAvatar({
@@ -11,11 +12,25 @@ export function UserAvatar({
 }) {
   const seed = encodeURIComponent(name);
   return (
-    <img
+    <SVG
       src={`https://api.navii.dev/avatar/${seed}?size=${size}`}
-      alt={`${name}'s avatar`}
       className={cn("rounded-full bg-muted", className)}
-      loading="lazy"
+      width={size}
+      height={size}
+      aria-label={`${name}'s avatar`}
+      sanitize={false}
+      loading={
+        <div
+          className={cn("rounded-full bg-muted", className)}
+          style={{ width: size, height: size }}
+        />
+      }
+      fallback={
+        <div
+          className={cn("rounded-full bg-muted", className)}
+          style={{ width: size, height: size }}
+        />
+      }
     />
   );
 }
