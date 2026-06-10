@@ -26,15 +26,10 @@ export default function HomePage() {
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <SignUpButton>
-              <Button size="lg" className="w-full gap-2 sm:w-auto rounded-full font-semibold">
-                Start orchestrating
-                <ArrowRight className="size-4" />
-              </Button>
+              <Button size="lg" className="w-full gap-2 sm:w-auto rounded-full font-semibold">Start orchestrating<ArrowRight className="size-4" /></Button>
             </SignUpButton>
             <SignInButton>
-              <Button variant="outline" size="lg" className="w-full sm:w-auto rounded-full font-semibold">
-                Sign in to workspace
-              </Button>
+              <Button variant="outline" size="lg" className="w-full sm:w-auto rounded-full font-semibold">Sign in to workspace</Button>
             </SignInButton>
           </div>
 

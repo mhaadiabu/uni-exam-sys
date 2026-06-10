@@ -43,14 +43,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Button>
               ) : (
                 <>
-                  <SignInButton>
-                    <Button variant="ghost" size="sm">
-                      Sign in
-                    </Button>
-                  </SignInButton>
-                  <SignUpButton>
-                    <Button size="sm">Get started</Button>
-                  </SignUpButton>
+                  <SignInButton><Button variant="ghost" size="sm">Sign in</Button></SignInButton>
+                  <SignUpButton><Button size="sm">Get started</Button></SignUpButton>
                 </>
               )}
             </div>
